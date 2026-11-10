@@ -6,6 +6,7 @@ umask 077
 : "${IOS_TEAM_ID:?Missing team ID}"
 mkdir -p "$RUNNER_TEMP/zorid-signing"
 python3 scripts/ios/prepare-signing.py
+node scripts/ios/check-api-access.mjs
 signing_dir="$RUNNER_TEMP/zorid-signing"
 keychain="$signing_dir/build.keychain-db"
 keychain_password="$(openssl rand -hex 32)"

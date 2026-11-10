@@ -16,6 +16,8 @@ RULES = [
     (r'no profiles|requires a provisioning profile|couldn.t find.*profile', 'A required provisioning profile is missing. Check each app/extension bundle ID.'),
     (r'profile.*(doesn.t|does not|doesn’t).*include|profile.*doesn.t support', 'A profile does not authorize the requested entitlement, certificate or device.'),
     (r'no signing certificate|certificate.*(expired|invalid|not found)|private key', 'A signing certificate/private key is missing, expired or incompatible.'),
+    (r'authentication credentials.*missing|authentication credentials.*invalid|invalid.*token|token.*expired', 'Xcode rejected API credentials. Verify the team key, key ID and issuer ID match and check runner API preflight results.'),
+    (r'agreement|license.*accept|terms.*accept', 'Developer account agreements may require acceptance by the Account Holder.'),
     (r'authentication|unauthorized|not authorized|forbidden|permission|access denied', 'Developer Resources authentication or permissions failed. Check the team API key access.'),
     (r'communication with apple|connection|timed out|network|service.*unavailable|HTTP.*(?:500|502|503)', 'Apple provisioning service or network communication failed.'),
     (r'conflicting provisioning|automatic.*manual|manually.*automatically', 'Automatic and manual signing settings conflict.'),

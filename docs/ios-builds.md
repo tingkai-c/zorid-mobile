@@ -31,6 +31,20 @@ Sources checked:
 - [GitHub Xcode 27 runner announcement and label](https://github.com/actions/runner-images/issues/14404)
 - [macOS 26 image inventory](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md) defaults to Xcode 26, so is not used here.
 
+## Private signing diagnostics
+
+Optionally set public repository variable `ZORID_DIAGNOSTIC_CERTIFICATE_BASE64` to a base64 PEM RSA recipient certificate. Keep its private key on the operator machine, never in GitHub. Failed device builds encrypt only the signing archive/export logs using OpenSSL CMS with AES-256, upload only `private-diagnostics.cms`, and retain that ciphertext artifact for three days. The temporary plaintext tarball is deleted immediately; original logs are removed by signing cleanup. The public job still emits only fixed diagnostic categories.
+
+Download and decrypt on the private operator machine, into a restricted directory:
+
+```sh
+umask 077
+openssl cms -decrypt -binary -inform DER -in private-diagnostics.cms \
+  -inkey /private/path/key.pem -out signing-logs.tar.gz
+```
+
+Do not repost decrypted logs or upload them as artifacts: they can contain account and provisioning metadata.
+
 ## Public update trust anchor
 
 Set repository variables `ZORID_UPDATE_URL` and `ZORID_UPDATE_CERTIFICATE_BASE64` together. The first is the paired host's HTTPS update endpoint; the second is base64 of its public PEM signing certificate, never the private signing key. The workflow decodes the certificate into runner temporary storage and passes `ZORID_UPDATE_CERTIFICATE` and `ZORID_UPDATE_URL` to Expo prebuild. An incomplete pair fails the build; with neither set, the app config's unpaired defaults apply.
@@ -50,7 +64,7 @@ Expected bundle IDs are `app.zorid.mobile` and `app.zorid.mobile.widgets`, shari
 
 The script rejects expired, wildcard, development and wrong-team profiles, then assigns each target its own profile by bundle ID. Xcode validates remaining entitlement/certificate compatibility. Profiles must remain valid at installation and use.
 
-Without the profile ZIP, automatic provisioning requires `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID`, and `ASC_API_ISSUER_ID`: a team App Store Connect API key with adequate Developer Resources permissions. Xcode receives `-allowProvisioningUpdates` and may create/update application-specific provisioning resources. This does not guarantee registration of every capability or App Group; supply explicit profiles if Xcode cannot do it. Automatic archives use Apple Development signing; export selects the available distribution signing identity for registered-device installation. Xcode may create a development certificate when the runner has none, so prefer reusable credentials/manual profiles for repeated builds rather than accumulating certificates. The distribution certificate is required in either branch. Apple documents the authentication flags in [Distribute apps in Xcode with cloud signing](https://developer.apple.com/videos/play/wwdc2021/10204/).
+Without the profile ZIP, automatic provisioning requires `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID`, and `ASC_API_ISSUER_ID`: a team App Store Connect API key with adequate Developer Resources permissions. Before archiving, a read-only API preflight verifies access to app identifiers, certificates and devices using the exact runner credentials, printing only HTTP status codes. Successful reads do not prove write/capability permissions. Xcode receives `-allowProvisioningUpdates` and may create/update application-specific provisioning resources. This does not guarantee registration of every capability or App Group; supply explicit profiles if Xcode cannot do it. Automatic archives use Apple Development signing; export selects the available distribution signing identity for registered-device installation. Xcode may create a development certificate when the runner has none, so prefer reusable credentials/manual profiles for repeated builds rather than accumulating certificates. The distribution certificate is required in either branch. Apple documents the authentication flags in [Distribute apps in Xcode with cloud signing](https://developer.apple.com/videos/play/wwdc2021/10204/).
 
 Secrets are decoded in a restricted runner temporary directory and imported into a temporary keychain. Unconditional cleanup removes that keychain, input profiles, decoded secrets and signing logs. Only trusted workflow revisions should receive secrets.
 
