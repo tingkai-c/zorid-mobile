@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
-import { useWorkspace } from '../features/workspace';
-import { workedMs } from '../domain/focus';
-import { Body, Card, colors, Heading, Screen } from '../ui/components';
+import { useWorkspace } from '../../features/workspace';
+import { workedMs } from '../../domain/focus';
+import { Body, Card, colors, Heading, Screen } from '../../ui/components';
 export default function Calendar() {
   const { sessions, now } = useWorkspace();
   const completed = sessions.filter(session => session.status === 'completed');

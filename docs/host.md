@@ -18,6 +18,8 @@ The native update configuration must declare `requestHeaders.Authorization` befo
 
 `init` outputs the **public** certificate path. Set `ZORID_UPDATE_URL` to the origin plus `/updates` and `ZORID_UPDATE_CERTIFICATE` to this public certificate for native builds. The matching Expo code-signing metadata is `{ "keyid": "main", "alg": "rsa-v1_5-sha256" }`. The host itself listens only on loopback. HTTPS termination is handled by Tailscale Serve. `init --dev-loopback --url http://127.0.0.1:8787` exists for local service development; an iPhone cannot use the host's loopback address.
 
+Runtime `zorid-2` uses native setup/settings rather than a permanent app tab. First pairing attempts to download and launch the first compatible release. Publish that runtime before pairing. Later launches open cached code directly; use the three-finger hold or Home Screen **Zorid Settings** shortcut for update controls.
+
 ## Pairing contract
 
 `pair` prints a terminal QR code and a `zorid://pair?url=<encoded-origin>&token=<token>` URI. Treat both as credentials until consumed or expired. `--json` omits the terminal QR and emits JSON for agents. Offers use 256-bit random tokens, expire after five minutes, and can be redeemed once. Creating an offer does not revoke existing devices.

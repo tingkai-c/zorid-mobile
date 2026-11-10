@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { useWorkspace } from '../features/workspace';
-import { Body, Button, Card, colors, Heading, Screen, styles } from '../ui/components';
+import { useWorkspace } from '../../features/workspace';
+import { Body, Button, Card, colors, Heading, Screen, styles } from '../../ui/components';
 export default function Tasks() {
   const { tasks, addTask, toggleTask, busy } = useWorkspace(); const [title, setTitle] = useState('');
   const create = async () => { if (!title.trim()) return; if (await addTask(title)) setTitle(''); };

@@ -2,7 +2,7 @@
 
 An open-source personal workspace for iPhone. Build native-rendered tools in React Native, keep their data on the device, and deliver signed JavaScript releases from your paired laptop over Tailscale.
 
-This foundation includes tasks, a persistent focus timer, work-session history, Settings with host pairing, and Focus widgets/Live Activities. It uses Bun, Expo SDK 58, React Native, and SQLite. PostgreSQL is the future shared-data foundation; cross-device synchronization is **not implemented yet**.
+This foundation includes tasks, a persistent focus timer, work-session history, native host pairing/settings, and Focus widgets/Live Activities. It uses Bun, Expo SDK 58, React Native, and SQLite. PostgreSQL is the future shared-data foundation; cross-device synchronization is **not implemented yet**.
 
 ## Develop on Linux / WSL
 
@@ -41,10 +41,10 @@ export ZORID_UPDATE_URL=https://your-host.your-tailnet.ts.net:10000/updates
 export ZORID_UPDATE_CERTIFICATE="$HOME/.local/share/zorid/certificate.pem"
 bun run export:ios
 bunx expo config --type public --json > dist/ios/expoConfig.json
-bun run host deploy dist/ios --runtime zorid-1
+bun run host deploy dist/ios --runtime zorid-2
 ```
 
-Settings checks, downloads, and applies the release. Already cached code and saved tasks work without the host. The phone must be connected to the same tailnet to download. Changing the pinned host/certificate or native capabilities requires a new binary. Bump `runtimeVersion` in `app.config.ts` whenever native dependencies or configuration become incompatible; never reuse a runtime for incompatible builds.
+On first launch, native setup pairs and loads the first compatible app. Later launches open the cached app directly. The app controls its full interface, including navigation. Hold three fingers on the screen for one second, or long-press the Home Screen icon → **Zorid Settings**, to check/download/apply later releases. Already cached code and saved tasks work without the host. The phone must be connected to the same tailnet to download. Changing the pinned host/certificate or native capabilities requires a new binary. Bump `runtimeVersion` in `app.config.ts` whenever native dependencies or configuration become incompatible; never reuse a runtime for incompatible builds.
 
 ## Boundaries
 

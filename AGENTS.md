@@ -7,7 +7,7 @@
 - Commit messages start with the reason for the change. Add Lore trailers when useful: Constraint, Rejected, Confidence, Scope-risk, Directive, Tested, Not-tested.
 
 ## Product boundaries
-- Native-rendered React Native/Expo application with feature routes and a permanent Settings tab.
+- Native-rendered React Native/Expo launcher. Downloaded apps own their entire interface and navigation. Native setup/settings stays accessible through a three-finger hold and Home Screen shortcut; see docs/architecture.md for launch behavior.
 - Devices receive whole-library JS releases directly from a paired user's host. No EAS hosting requirement. New native capabilities require a binary rebuild.
 - Keep code deployment separate from personal-data access. Pairing credentials, signing material, provisioning profiles, private metadata, and .env files never enter Git or public logs.
 - Local-first shared records are the foundation. PowerSync and Yjs remain candidates until integration is validated; never present mock synchronization as working sync.

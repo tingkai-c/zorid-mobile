@@ -9,7 +9,7 @@ if (updateURL && (new URL(updateURL).protocol !== 'https:' || updateURL !== `${n
 const config: ExpoConfig = {
   name: 'Zorid', slug: 'zorid-mobile', scheme: 'zorid', version: '0.1.0',
   orientation: 'portrait', userInterfaceStyle: 'light', icon: './assets/icon.png',
-  runtimeVersion: 'zorid-1',
+  runtimeVersion: 'zorid-2',
   ios: { bundleIdentifier: 'app.zorid.mobile', supportsTablet: true, buildNumber: process.env.GITHUB_RUN_NUMBER ?? '1' },
   android: { package: 'app.zorid.mobile' },
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
@@ -23,6 +23,7 @@ const config: ExpoConfig = {
   } : { enabled: false },
   extra: { updateOrigin: updateURL ? new URL(updateURL).origin : null },
   plugins: [
+    './plugins/with-zorid-shell.cjs',
     ['expo-router', { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless', 'Cross-Origin-Opener-Policy': 'same-origin' } }],
     'expo-sqlite', 'expo-secure-store',
     ['expo-camera', { cameraPermission: 'Allow Zorid to scan your laptop pairing code.', microphonePermission: false, recordAudioAndroid: false }],

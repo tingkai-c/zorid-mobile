@@ -1,10 +1,16 @@
-import { ConnectionProvider } from '../connection/ConnectionProvider';
-import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
-import { WorkspaceProvider } from '../features/workspace';
-import { colors } from '../ui/components';
+import { Slot } from 'expo-router';
+import * as Updates from 'expo-updates';
+import { Platform } from 'react-native';
+import { launchDestination } from '../shell/launch';
+import { SetupScreen } from '../shell/SetupScreen';
+
 export default function RootLayout() {
-  return <ConnectionProvider><WorkspaceProvider><Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.accent, tabBarInactiveTintColor: colors.muted, tabBarStyle: { backgroundColor: colors.paper, borderTopColor: colors.border }, tabBarLabelStyle: { fontSize: 11 } }}>
-    {([['index', 'Today', '◈'], ['tasks', 'Tasks', '✓'], ['focus', 'Focus', '◷'], ['calendar', 'Calendar', '▦'], ['settings', 'Settings', '⚙']] as const).map(([name, title, icon]) => <Tabs.Screen key={name} name={name} options={{ title, tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 23 }} accessibilityElementsHidden>{icon}</Text> }} />)}
-  </Tabs></WorkspaceProvider></ConnectionProvider>;
+  const destination = launchDestination({
+    platform: Platform.OS,
+    development: __DEV__,
+    updatesEnabled: Updates.isEnabled,
+    embeddedLaunch: Updates.isEmbeddedLaunch,
+  });
+
+  return destination === 'setup' ? <SetupScreen /> : <Slot />;
 }

@@ -1,7 +1,7 @@
 # Design
 
 ## Source of truth
-Active, 2026-11-11. No prior assets or design documents existed. User discussion defines native personal tools, bottom tabs with permanent Settings, local operation, shared data, laptop pairing and deployment.
+Active, 2026-11-11. No prior assets or design documents existed. User discussion defines native personal tools, app-owned navigation, hidden native settings, local operation, shared data, laptop pairing and deployment.
 
 ## Brand
 Quiet, practical personal workspace. Trust comes from explicit local/connected/update state. Avoid dashboard clutter, fake metrics, and fabricated synchronization indicators.
@@ -13,7 +13,7 @@ A native launcher that grows through features. First proof: tasks, focus session
 One person using iPhone and eventually desktop. Agents build tools on their paired host. Everyday data must remain usable without that host.
 
 ## Information architecture
-Today, Tasks, Focus, Calendar, Settings. Settings is always last. Feature routes and local storage have stable identifiers; shared records connect tasks to sessions.
+With no downloaded app, show native connection setup. Once loaded, launch the cached app directly, including offline starts. The downloaded app controls its routes and navigation. The demo supplies Today, Tasks, Focus and Calendar tabs. Launcher settings opens through a three-finger hold (one second) or Home Screen icon long press → Zorid Settings. These native entrances remain available independently of app JavaScript. Feature routes and local storage have stable identifiers; shared records connect tasks to sessions.
 
 ## Design principles
 Native controls, readable content, explicit errors. Show saved state before decorative feedback. Small scoped components, no speculative design-system framework.
@@ -22,12 +22,12 @@ Native controls, readable content, explicit errors. Show saved state before deco
 Warm neutral background, white cards, dark charcoal text, teal accent. System fonts and Dynamic Type. Spacing 8/12/16/24/32. Rounded cards, minimal shadows. No required animation or imagery.
 
 ## Components
-Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Native tab navigation and safe areas.
+Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. Native settings uses system SwiftUI controls and an explicit Done button when an app is loaded.
 
 Page headers start with the page title and subtitle. Omit the repeated product/device label above them.
 
 ## Accessibility
-Aim for WCAG AA contrast, labeled controls, 44-point minimum hit areas, scalable text. Forms remain usable with keyboard visible; status isn't conveyed by color alone. Avoid ticking screen-reader announcements.
+Aim for WCAG AA contrast, labeled controls, 44-point minimum hit areas, scalable text. Forms remain usable with keyboard visible; status isn't conveyed by color alone. Avoid ticking screen-reader announcements. The Home Screen shortcut provides an alternative to the hidden multi-touch gesture.
 
 ## Responsive behavior
 Primary iPhone portrait; scroll rather than clip on small screens and larger text. Tablet/web preview uses bounded content width. Native extension layouts adapt to widget size.

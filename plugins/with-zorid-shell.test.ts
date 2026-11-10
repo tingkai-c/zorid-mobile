@@ -1,0 +1,36 @@
+import { describe, expect, test } from 'bun:test';
+import { createRequire } from 'node:module';
+
+const { patchSceneDelegate } = createRequire(import.meta.url)('./with-zorid-shell.cjs') as {
+  patchSceneDelegate: (source: string) => string;
+};
+const template = `internal import Expo
+
+@objc(SceneDelegate)
+class SceneDelegate: ExpoAppSceneDelegate {
+  // Extension point for config plugins.
+}
+`;
+
+describe('native settings lifecycle integration', () => {
+  test('handles cold and warm shortcuts and attaches after Expo creates its window', () => {
+    const patched = patchSceneDelegate(template);
+    expect(patched).toContain('import ZoridShell');
+    expect(patched.indexOf('super.scene(scene, willConnectTo: session')).toBeLessThan(patched.indexOf('attach(to: window, shortcut:'));
+    expect(patched).toContain('shortcut: connectionOptions.shortcutItem');
+    expect(patched).toContain('override func sceneDidBecomeActive');
+    expect(patched).toContain('handleShortcut(shortcutItem)');
+    expect(patched).toContain('super.windowScene(windowScene, performActionFor: shortcutItem');
+    expect(patched).toContain('completionHandler(true)');
+  });
+  test('repeated prebuilds preserve unrelated native content without duplicate hooks', () => {
+    const once = patchSceneDelegate(template.replace('@objc', '// Another plugin\n@objc'));
+    expect(patchSceneDelegate(once)).toBe(once);
+    expect(once).toContain('// Another plugin');
+  });
+  test('fails explicitly on unsupported templates and damaged generated blocks', () => {
+    expect(() => patchSceneDelegate('class SceneDelegate {}')).toThrow('scene-based');
+    expect(() => patchSceneDelegate(template.replace('  // Extension point for config plugins.', ''))).toThrow('extension point');
+    expect(() => patchSceneDelegate(`${template}\n  // @generated begin zorid-shell`)).toThrow('Incomplete');
+  });
+});

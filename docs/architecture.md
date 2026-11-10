@@ -4,7 +4,7 @@ Zorid is a native-rendered personal workspace whose JavaScript feature library c
 
 ## Running foundation
 
-Bun manages dependencies, scripts, tests and the desktop/WSL host CLI. Expo SDK 58 and React Native provide the iPhone app, Expo Router its bottom tabs, and Expo SQLite its persistent local records. Settings is permanent. Today, Tasks, Focus and Calendar currently use static routes; a new whole-library release can add routes. There is no independent arbitrary-bundle plugin runtime.
+Bun manages dependencies, scripts, tests and the desktop/WSL host CLI. Expo SDK 58 and React Native provide the iPhone app, Expo Router the downloaded app’s routing, and Expo SQLite its persistent local records. The native shell has no required tab bar or Settings route. The demo owns Today, Tasks, Focus and Calendar tabs; a new whole-library release can replace its entire interface. There is no independent arbitrary-bundle plugin runtime.
 
 `src/storage/documents.ts` stores namespaced documents with stable IDs, a payload schema version, update time and JSON data. `src/features/workspace.tsx` hydrates and validates records before edits and serializes mutations. UI state changes after a successful durable write. Tasks reference UUIDs; focus sessions preserve the task title as a historical snapshot. Timer state is timestamps plus closed work intervals, so pausing does not count as work and restarting the app can restore elapsed time. Reconciliation caps completed work at the target duration when the app resumes; there is no background JavaScript timer guarantee.
 
@@ -12,9 +12,15 @@ All personal records currently live on the device. They remain available offline
 
 ## Code delivery and trust
 
-The paired host is a code delivery service, separate from personal-data storage. A local Bun CLI publishes whole-library exports. Tailscale Serve supplies HTTPS; a short-lived single-use QR offer pairs a phone. The installed binary pins the host origin, runtime compatibility string and update-signing certificate. The phone keeps its bearer credential in SecureStore. The ConnectionProvider restores native update request headers at startup.
+The paired host is a code delivery service, separate from personal-data storage. A local Bun CLI publishes whole-library exports. Tailscale Serve supplies HTTPS; a short-lived single-use QR offer pairs a phone. The installed binary pins the host origin, runtime compatibility string and update-signing certificate. The phone keeps its bearer credential in SecureStore. The native shell restores update request headers from the same Keychain record used by Expo SecureStore before checking or fetching releases.
 
-Expo Updates supplies the installed client and compatible protocol; the host supplies manifests and immutable assets without EAS hosting. The user checks/downloads/applies releases through Settings. Host rollback republishes a prior compatible payload; native crash recovery and authenticated downloads still require physical-device acceptance. Changing native modules, extension configuration or trust anchors requires a signed binary rebuild. See [host operation and limitations](host.md) and [iOS builds](ios-builds.md).
+Expo Updates supplies the installed client and compatible protocol; the host supplies manifests and immutable assets without EAS hosting. The initial native setup pairs and downloads the first compatible app; subsequent launches open the cached app directly. Native settings provides check/download/apply controls. Host rollback republishes a prior compatible payload; native crash recovery and authenticated downloads still require physical-device acceptance. Changing native modules, extension configuration or trust anchors requires a signed binary rebuild. See [host operation and limitations](host.md) and [iOS builds](ios-builds.md).
+
+## Native launcher
+
+Runtime `zorid-2` adds the local `modules/zorid-shell` Expo module. UIKit attaches a three-finger, one-second hold recognizer to the scene window. A static Home Screen quick action opens the same native SwiftUI settings on cold and warm launches. `plugins/with-zorid-shell.cjs` preserves these hooks across Expo prebuild. Neither entrance depends on React navigation or a functioning JavaScript bundle.
+
+An embedded launch shows connection setup, rather than the embedded demo. The native coordinator owns initial presentation; the JS root supplies a fallback setup button. Pairing accepts a pasted link or native camera QR scan, validates the binary-pinned host, saves the credential in Keychain, and attempts the first compatible download. Cached OTA launches show the app without requiring network access. Replacing the app’s code does not replace this native settings surface. Runtime `zorid-1` binaries retain their older JS Settings interface and cannot receive the new runtime’s releases.
 
 ## Native surfaces
 

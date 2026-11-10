@@ -1,0 +1,9 @@
+{
+  "name": "zorid-shell",
+  "version": "0.1.0",
+  "description": "Native connection and recovery settings for Zorid",
+  "license": "MIT",
+  "author": "Zorid contributors",
+  "homepage": "https://github.com/tingkai-c/zorid-mobile",
+  "private": true
+}

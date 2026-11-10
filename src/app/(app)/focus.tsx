@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
-import { useWorkspace } from '../features/workspace';
-import { workedMs } from '../domain/focus';
-import { Body, Button, Card, colors, Heading, Screen } from '../ui/components';
+import { useWorkspace } from '../../features/workspace';
+import { workedMs } from '../../domain/focus';
+import { Body, Button, Card, colors, Heading, Screen } from '../../ui/components';
 export default function Focus() {
   const { tasks, active, start, control, busy, now, surfaceError } = useWorkspace(); const [selected, setSelected] = useState<string>();
   const remaining = active ? Math.max(0, Math.ceil((active.targetMs - workedMs(active, now)) / 1000)) : 25 * 60;
