@@ -1,9 +1,10 @@
+import { relative, resolve } from 'node:path';
 import type { ExpoConfig } from 'expo/config';
 
 const updateURL = process.env.ZORID_UPDATE_URL;
 const certificate = process.env.ZORID_UPDATE_CERTIFICATE;
 if (Boolean(updateURL) !== Boolean(certificate)) throw new Error('Set both ZORID_UPDATE_URL and ZORID_UPDATE_CERTIFICATE, or neither.');
-if (updateURL && (new URL(updateURL).protocol !== 'https:' || new URL(updateURL).pathname !== '/updates')) throw new Error('Update URL must be an HTTPS origin followed by /updates.');
+if (updateURL && (new URL(updateURL).protocol !== 'https:' || updateURL !== `${new URL(updateURL).origin}/updates`)) throw new Error('Update URL must be an HTTPS origin followed by /updates.');
 
 const config: ExpoConfig = {
   name: 'Zorid', slug: 'zorid-mobile', scheme: 'zorid', version: '0.1.0',
@@ -14,7 +15,7 @@ const config: ExpoConfig = {
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
   updates: updateURL ? {
     enabled: true, url: updateURL, checkAutomatically: 'NEVER', fallbackToCacheTimeout: 0,
-    codeSigningCertificate: certificate,
+    codeSigningCertificate: relative(process.cwd(), resolve(certificate!)),
     codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
   } : { enabled: false },
   extra: { updateOrigin: updateURL ? new URL(updateURL).origin : null },

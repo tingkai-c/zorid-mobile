@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: zorid
+      POSTGRES_USER: zorid
+      POSTGRES_PASSWORD: ${ZORID_POSTGRES_PASSWORD:?Set a local development password}
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - zorid-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zorid -d zorid"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  zorid-postgres:

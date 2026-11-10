@@ -1,0 +1,37 @@
+# Architecture
+
+Zorid is a native-rendered personal workspace whose JavaScript feature library can evolve without reinstalling its native shell. The first feature slice is tasks → focus session → calendar history. Features share durable identities, rather than keeping unrelated copies of a task in each screen.
+
+## Running foundation
+
+Bun manages dependencies, scripts, tests and the desktop/WSL host CLI. Expo SDK 58 and React Native provide the iPhone app, Expo Router its bottom tabs, and Expo SQLite its persistent local records. Settings is permanent. Today, Tasks, Focus and Calendar currently use static routes; a new whole-library release can add routes. There is no independent arbitrary-bundle plugin runtime.
+
+`src/storage/documents.ts` stores namespaced documents with stable IDs, a payload schema version, update time and JSON data. `src/features/workspace.tsx` hydrates and validates records before edits and serializes mutations. UI state changes after a successful durable write. Tasks reference UUIDs; focus sessions preserve the task title as a historical snapshot. Timer state is timestamps plus closed work intervals, so pausing does not count as work and restarting the app can restore elapsed time. Reconciliation caps completed work at the target duration when the app resumes; there is no background JavaScript timer guarantee.
+
+All personal records currently live on the device. They remain available offline without a paired host. This does not yet provide cross-device sync, a desktop data client, a production data backend, attachments, a Notion editor or CRDT collaboration.
+
+## Code delivery and trust
+
+The paired host is a code delivery service, separate from personal-data storage. A local Bun CLI publishes whole-library exports. Tailscale Serve supplies HTTPS; a short-lived single-use QR offer pairs a phone. The installed binary pins the host origin, runtime compatibility string and update-signing certificate. The phone keeps its bearer credential in SecureStore. The ConnectionProvider restores native update request headers at startup.
+
+Expo Updates supplies the installed client and compatible protocol; the host supplies manifests and immutable assets without EAS hosting. The user checks/downloads/applies releases through Settings. Host rollback republishes a prior compatible payload; native crash recovery and authenticated downloads still require physical-device acceptance. Changing native modules, extension configuration or trust anchors requires a signed binary rebuild. See [host operation and limitations](host.md) and [iOS builds](ios-builds.md).
+
+## Native surfaces
+
+`src/native/surfaces` isolates focus publication from storage. Expo Widgets renders WidgetKit/ActivityKit layouts from installed supported native components; a failed surface update does not discard local records. Native date-based countdowns continue visually without per-second JS writes. The operating system controls widget refreshes and Live Activity lifetime. New renderers/capabilities need a new binary. The current focus surface demonstrates the bridge; a general visual widget editor is future work.
+
+## Future shared data backend
+
+[The PostgreSQL schema](../backend/README.md) is an independently testable foundation, not a connected service. Collections and property definitions describe user-created databases; records contain JSONB payloads and payload versions; relation edges carry database-enforced same-workspace references. A normalized focus timeline supports calendar queries. The database uses tombstones to leave room for later deletion propagation.
+
+JSONB permits adding fields without immediately altering a SQL table and supports indexing, but does not remove semantic migrations or validation. See [PostgreSQL JSON documentation](https://www.postgresql.org/docs/18/datatype-json.html). Database constraints enforce structural invariants, with application validation still needed for user-defined property semantics; see [PostgreSQL constraints](https://www.postgresql.org/docs/18/ddl-constraints.html).
+
+PowerSync is a candidate for PostgreSQL-to-local-SQLite synchronization. Yjs is a candidate for convergent rich-text documents. Neither is integrated or validated here. A two-client proof must establish offline writes, access control, tombstone propagation, conflict handling, migrations, reconnect and backup recovery before selecting and deploying the sync layer. Realtime transport alone does not define merge semantics or durable synchronization.
+
+Expected conflicts need explicit product rules. Simultaneous task edits can use expected revisions and deliberate field merges. Two devices starting focus offline must reconcile competing sessions. Rich text may use CRDT operations; a CRDT should not silently decide task completion, timer ownership or relational integrity. Attachments belong in a separate blob store referenced by records, with quotas and authorization.
+
+Local document formats and the server schema are currently different representations. There is no implicit migration or upload. A future adapter must map identity, timestamps, JSON properties and interval formats and define ownership/authentication before exposing data. Schema versions, additive migrations, old-client compatibility and rollback-readable data remain necessary even with JSON and CRDTs.
+
+## Execution and validation
+
+WSL performs development, dependencies, tests and JavaScript export. GitHub macOS runners generate native projects, compile/sign and upload build artifacts; the Mac only installs the signed app. Tests cover pure focus transitions, local document SQL, host protocol and native snapshot logic. Native compilation is separate evidence from successful installation, offline launch, pairing, OTA recovery and real widget rendering on a registered iPhone.
