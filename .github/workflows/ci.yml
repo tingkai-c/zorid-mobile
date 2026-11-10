@@ -19,6 +19,7 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun test
+      - run: python3 scripts/ios/test-build.py
       - run: bun run export:ios
       - uses: actions/upload-artifact@v4
         with:
