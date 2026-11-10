@@ -18,7 +18,7 @@ Expo Updates supplies the installed client and compatible protocol; the host sup
 
 ## Native launcher
 
-Runtime `zorid-2` adds the local `modules/zorid-shell` Expo module. UIKit attaches a three-finger, one-second hold recognizer to the scene window. A static Home Screen quick action opens the same native SwiftUI settings on cold and warm launches. `plugins/with-zorid-shell.cjs` preserves these hooks across Expo prebuild. Neither entrance depends on React navigation or a functioning JavaScript bundle.
+Runtime `zorid-2` adds the local `modules/zorid-shell` Expo module. UIKit attaches a three-finger, one-second hold recognizer to the scene window. A static Home Screen quick action opens the same native SwiftUI settings on cold and warm launches. The complete connection/settings interface is compiled into the binary; updating that interface requires a rebuild. Its system controls, opening haptics and pairing feedback do not rely on downloaded JavaScript. `plugins/with-zorid-shell.cjs` preserves these hooks across Expo prebuild. Neither entrance depends on React navigation or a functioning JavaScript bundle.
 
 An embedded launch shows connection setup, rather than the embedded demo. The native coordinator owns initial presentation; the JS root supplies a fallback setup button. Pairing accepts a pasted link or native camera QR scan, validates the binary-pinned host, saves the credential in Keychain, and attempts the first compatible download. Cached OTA launches show the app without requiring network access. Replacing the app’s code does not replace this native settings surface. Runtime `zorid-1` binaries retain their older JS Settings interface and cannot receive the new runtime’s releases.
 

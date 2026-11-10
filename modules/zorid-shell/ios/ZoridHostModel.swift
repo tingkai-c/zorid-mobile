@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import EXUpdates
+import UIKit
 
 // This model is used only on the main queue. Native networking/update callbacks
 // return there before publishing UI state; no React runtime is needed.
@@ -16,6 +17,7 @@ final class ZoridHostModel: ObservableObject {
 
   private var credential: ZoridPairedHost?
   private var pairingSession: URLSession?
+  private let pairingFeedback = UINotificationFeedbackGenerator()
   var onRelaunch: (() -> Void)?
 
   func refreshLaunchState() {
@@ -40,7 +42,7 @@ final class ZoridHostModel: ObservableObject {
       hostName = credential?.hostName
       try applyHeaders()
       errorMessage = nil
-      status = credential == nil ? "Connect a host to load your app." : "Host paired. Your saved app works offline."
+      status = credential == nil ? "Connect a host to load your app." : (downloaded ? "Update downloaded. Reload to open it." : (hasApp ? "Your downloaded app is available offline." : "Ready to download your app."))
     } catch {
       credential = nil
       hostName = nil
@@ -59,15 +61,16 @@ final class ZoridHostModel: ObservableObject {
     guard !busy, let origin else { return }
     let token: String
     do { token = try ZoridPairing.offer(value, trustedOrigin: origin) }
-    catch let failure as ZoridPairingFailure { errorMessage = failure.message; return }
-    catch { errorMessage = ZoridPairingFailure.invalidLink.message; return }
+    catch let failure as ZoridPairingFailure { failPairing(failure.message); return }
+    catch { failPairing(ZoridPairingFailure.invalidLink.message); return }
     guard let endpoint = URL(string: "\(origin)/pair"),
       let body = try? JSONSerialization.data(withJSONObject: ["token": token, "deviceName": "Zorid iPhone"])
-    else { errorMessage = ZoridPairingFailure.invalidLink.message; return }
+    else { failPairing(ZoridPairingFailure.invalidLink.message); return }
 
     busy = true
     errorMessage = nil
     status = "Pairing with your host…"
+    pairingFeedback.prepare()
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
     request.httpBody = body
@@ -88,28 +91,29 @@ final class ZoridHostModel: ObservableObject {
         self.pairingSession = nil
         self.busy = false
         guard error == nil, let response = response as? HTTPURLResponse else {
-          self.fail("Could not reach your host. Check Tailscale and try a fresh pairing code.")
+          self.failPairing("Could not reach your host. Check Tailscale and try a fresh pairing code.")
           return
         }
         guard response.statusCode == 200 else {
           if response.statusCode == 401 || response.statusCode == 410 {
-            self.fail("This pairing code has expired or was already used. Generate a fresh code on your host.")
+            self.failPairing("This pairing code has expired or was already used. Generate a fresh code on your host.")
           } else {
-            self.fail("The host rejected pairing. Generate a fresh code and try again.")
+            self.failPairing("The host rejected pairing. Generate a fresh code and try again.")
           }
           return
         }
         guard let data, data.count <= 16_384,
           let decoded = try? JSONDecoder().decode(ZoridPairedHost.self, from: data),
           let paired = try? ZoridPairing.validate(decoded, origin: origin)
-        else { self.fail(ZoridPairingFailure.invalidResponse.message); return }
+        else { self.failPairing(ZoridPairingFailure.invalidResponse.message); return }
         do { try ZoridCredentialStore.save(paired) }
-        catch { self.fail(ZoridPairingFailure.storage.message); return }
+        catch { self.failPairing(ZoridPairingFailure.storage.message); return }
         self.credential = paired
         self.hostName = paired.hostName
         do { try self.applyHeaders() }
-        catch { self.fail("Host paired, but the updater could not use this connection. Try checking again."); return }
+        catch { self.failPairing("Host paired, but the updater could not use this connection. Try checking again."); return }
         self.status = "Host paired."
+        self.pairingFeedback.notificationOccurred(.success)
         self.checkAndDownload(automaticallyReload: !self.hasApp)
       }
     }.resume()
@@ -202,6 +206,11 @@ final class ZoridHostModel: ObservableObject {
 
   private func failUpdate() {
     fail("The update could not be checked or downloaded. Check Tailscale and your host, then try again. Your saved app remains available.")
+  }
+
+  private func failPairing(_ message: String) {
+    fail(message)
+    pairingFeedback.notificationOccurred(.error)
   }
 
   private func fail(_ message: String) {

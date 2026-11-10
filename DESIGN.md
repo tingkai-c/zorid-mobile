@@ -22,7 +22,7 @@ Native controls, readable content, explicit errors. Show saved state before deco
 Warm neutral background, white cards, dark charcoal text, teal accent. System fonts and Dynamic Type. Spacing 8/12/16/24/32. Rounded cards, minimal shadows. No required animation or imagery.
 
 ## Components
-Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. Native settings uses system SwiftUI controls and an explicit Done button when an app is loaded.
+Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. The entire connection/settings screen is SwiftUI, owned by the installed binary. Use system grouped forms, semantic colors, Dynamic Type, labeled SF Symbols, and an explicit Done button when an app is loaded. Explicit opening through any entrance produces one soft haptic; automatic setup and repeated requests while already visible stay silent. Pairing success and failure use the corresponding notification feedback.
 
 Page headers start with the page title and subtitle. Omit the repeated product/device label above them.
 

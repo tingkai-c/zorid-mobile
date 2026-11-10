@@ -38,7 +38,10 @@ function patchSceneDelegate(source) {
   if (first >= 0) source = source.slice(0, first) + hooks + source.slice(last + end.length);
   else if (source.includes(marker)) source = source.replace(marker, hooks);
   else throw new Error('Missing Expo SceneDelegate extension point; inspect native shell integration.');
-  if (!/^import ZoridShell$/m.test(source)) source = `import ZoridShell\n${source}`;
+  // Match Expo's generated module provider under Swift 6 import access checks.
+  const moduleImport = /^(?:internal )?import ZoridShell$/m;
+  if (moduleImport.test(source)) source = source.replace(moduleImport, 'internal import ZoridShell');
+  else source = `internal import ZoridShell\n${source}`;
   return source;
 }
 
@@ -47,7 +50,7 @@ function withZoridShell(config) {
     const items = mod.modResults.UIApplicationShortcutItems ?? [];
     mod.modResults.UIApplicationShortcutItems = [
       ...items.filter((item) => item.UIApplicationShortcutItemType !== shortcutType),
-      { UIApplicationShortcutItemType: shortcutType, UIApplicationShortcutItemTitle: 'Zorid Settings', UIApplicationShortcutItemIconType: 'UIApplicationShortcutIconTypeTask' },
+      { UIApplicationShortcutItemType: shortcutType, UIApplicationShortcutItemTitle: 'Zorid Settings', UIApplicationShortcutItemIconSymbolName: 'gearshape' },
     ];
     return mod;
   });

@@ -16,6 +16,8 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private var startupResolved = false
   private var attemptedInitialDownload = false
   private var pendingOpen = false
+  private var pendingOpeningFeedback = false
+  private let openingFeedback = UIImpactFeedbackGenerator(style: .soft)
 
   private override init() {
     super.init()
@@ -55,6 +57,11 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
       DispatchQueue.main.async { [weak self] in self?.openSettings() }
       return
     }
+    // All explicit entrances share this path. Automatic setup only sets
+    // pendingOpen, and repeated requests while visible produce no feedback.
+    guard panel == nil else { return }
+    pendingOpeningFeedback = true
+    openingFeedback.prepare()
     pendingOpen = true
     inspectStartup()
     model.refreshLaunchState()
@@ -71,7 +78,6 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
 
   @objc private func didHold(_ recognizer: UILongPressGestureRecognizer) {
     guard recognizer.state == .began else { return }
-    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     openSettings()
   }
 
@@ -116,14 +122,15 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private func presentIfNeeded() {
     guard startupResolved, pendingOpen, panel == nil, let window,
       let root = window.rootViewController else { return }
-    // Wait for the native root to join its window, independently of React mounting.
-    guard root.viewIfLoaded?.window != nil else {
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.presentIfNeeded() }
-      return
-    }
     var presenter = root
     while let presented = presenter.presentedViewController, !presented.isBeingDismissed {
       presenter = presented
+    }
+    // Full-screen native modals can detach the root view. Use the visible
+    // presenter so recovery remains available while one of those is open.
+    guard presenter.viewIfLoaded?.window != nil else {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.presentIfNeeded() }
+      return
     }
     guard !presenter.isBeingPresented, !presenter.isBeingDismissed else {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.presentIfNeeded() }
@@ -134,9 +141,12 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
     }))
     controller.modalPresentationStyle = model.hasApp ? .pageSheet : .fullScreen
     controller.isModalInPresentation = !model.hasApp
+    if model.hasApp { controller.sheetPresentationController?.prefersGrabberVisible = true }
     controller.presentationController?.delegate = self
     panel = controller
     pendingOpen = false
+    if pendingOpeningFeedback { openingFeedback.impactOccurred(intensity: 0.7) }
+    pendingOpeningFeedback = false
     presenter.present(controller, animated: model.hasApp) { [weak self, weak controller] in
       controller?.presentationController?.delegate = self
     }
@@ -145,6 +155,7 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private func dismissSettings() {
     guard model.hasApp else { return }
     pendingOpen = false
+    pendingOpeningFeedback = false
     panel?.dismiss(animated: true)
     panel = nil
   }
@@ -154,6 +165,7 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
     let previous = panel
     panel = nil
     pendingOpen = !model.hasApp
+    pendingOpeningFeedback = false
     if let previous {
       previous.dismiss(animated: false) { [weak self] in self?.presentIfNeeded() }
     } else {

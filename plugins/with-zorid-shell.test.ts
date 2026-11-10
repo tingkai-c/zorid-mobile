@@ -15,7 +15,7 @@ class SceneDelegate: ExpoAppSceneDelegate {
 describe('native settings lifecycle integration', () => {
   test('handles cold and warm shortcuts and attaches after Expo creates its window', () => {
     const patched = patchSceneDelegate(template);
-    expect(patched).toContain('import ZoridShell');
+    expect(patched).toContain('internal import ZoridShell');
     expect(patched.indexOf('super.scene(scene, willConnectTo: session')).toBeLessThan(patched.indexOf('attach(to: window, shortcut:'));
     expect(patched).toContain('shortcut: connectionOptions.shortcutItem');
     expect(patched).toContain('override func sceneDidBecomeActive');
@@ -27,6 +27,7 @@ describe('native settings lifecycle integration', () => {
     const once = patchSceneDelegate(template.replace('@objc', '// Another plugin\n@objc'));
     expect(patchSceneDelegate(once)).toBe(once);
     expect(once).toContain('// Another plugin');
+    expect(patchSceneDelegate(once.replace('internal import ZoridShell', 'import ZoridShell'))).toBe(once);
   });
   test('fails explicitly on unsupported templates and damaged generated blocks', () => {
     expect(() => patchSceneDelegate('class SceneDelegate {}')).toThrow('scene-based');
