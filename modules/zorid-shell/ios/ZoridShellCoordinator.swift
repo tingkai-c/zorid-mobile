@@ -1,6 +1,6 @@
 import UIKit
 import SwiftUI
-import EXUpdates
+import CoreMotion
 
 /// Installed-binary recovery surface. Scene hooks attach it to the UIWindow,
 /// so a downloaded app cannot accidentally remove the settings gesture.
@@ -11,6 +11,8 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private weak var window: UIWindow?
   private var gesture: UILongPressGestureRecognizer?
   private var panel: UIViewController?
+  private weak var panelRoot: UIViewController?
+  private var presentationRetryPending = false
   private let model = ZoridHostModel()
   private var readinessTimer: Timer?
   private var startupResolved = false
@@ -18,6 +20,8 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private var pendingOpen = false
   private var pendingOpeningFeedback = false
   private let openingFeedback = UIImpactFeedbackGenerator(style: .soft)
+  private let motion = CMMotionManager()
+  private var shakeDetector = ZoridShakeDetector()
 
   private override init() {
     super.init()
@@ -50,23 +54,33 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
       RunLoop.main.add(timer, forMode: .common)
     }
     presentIfNeeded()
+    if self.window?.windowScene?.activationState == .foregroundActive { startShakeDetection() }
   }
 
-  public func openSettings() {
+  @discardableResult
+  public func openSettings() -> Bool {
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { [weak self] in self?.openSettings() }
-      return
+      DispatchQueue.main.async { [weak self] in _ = self?.openSettings() }
+      return true
     }
     // All explicit entrances share this path. Automatic setup only sets
     // pendingOpen, and repeated requests while visible produce no feedback.
-    guard panel == nil else { return }
+    if panelIsAttached(to: window?.rootViewController) { return true }
+    let targetWindow = window ?? UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .first { $0.activationState == .foregroundActive }?.keyWindow
+    guard let targetWindow else { return false }
     pendingOpeningFeedback = true
     openingFeedback.prepare()
     pendingOpen = true
+    if window == nil { attach(to: targetWindow) }
     inspectStartup()
-    model.refreshLaunchState()
-    model.restoreCredential()
+    if !panelIsAttached(to: targetWindow.rootViewController) {
+      model.refreshLaunchState()
+      model.restoreCredential()
+    }
     presentIfNeeded()
+    return true
   }
 
   @discardableResult
@@ -79,6 +93,28 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   @objc private func didHold(_ recognizer: UILongPressGestureRecognizer) {
     guard recognizer.state == .began else { return }
     openSettings()
+  }
+
+  public func stopShakeDetection() {
+    motion.stopDeviceMotionUpdates()
+    shakeDetector = ZoridShakeDetector()
+  }
+
+  private func startShakeDetection() {
+    guard motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
+    motion.deviceMotionUpdateInterval = 1.0 / 25.0
+    motion.startDeviceMotionUpdates(to: .main) { [weak self] sample, _ in
+      guard let self, let sample,
+        self.window?.windowScene?.activationState == .foregroundActive,
+        !self.panelIsAttached(to: self.window?.rootViewController) else { return }
+      let acceleration = sample.userAcceleration
+      if self.shakeDetector.record(
+        SIMD3(acceleration.x, acceleration.y, acceleration.z),
+        at: sample.timestamp
+      ) {
+        self.openSettings()
+      }
+    }
   }
 
   public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
@@ -97,13 +133,10 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
     presentIfNeeded()
     return
     #else
-    guard !startupResolved, AppController.isInitialized(),
-      AppController.sharedInstance.isStarted,
-      AppController.sharedInstance.launchAssetUrl() != nil || !AppController.sharedInstance.isActiveController else { return }
+    guard !startupResolved, model.refreshLaunchState() else { return }
     startupResolved = true
     readinessTimer?.invalidate()
     readinessTimer = nil
-    model.refreshLaunchState()
     model.restoreCredential()
     if !model.hasApp {
       pendingOpen = true
@@ -120,35 +153,79 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   }
 
   private func presentIfNeeded() {
-    guard startupResolved, pendingOpen, panel == nil, let window,
+    guard startupResolved, pendingOpen, let window,
+      window.windowScene?.activationState == .foregroundActive,
       let root = window.rootViewController else { return }
+    guard !panelIsAttached(to: root) else { return }
+    panel = nil
+    // Expo Updates sets the launch URL before its main-queue callback replaces
+    // the startup view. A modal presented on that view vanishes with it.
+    if let view = root.viewIfLoaded {
+      let className = NSStringFromClass(type(of: view))
+      if className == "EXDeferredRCTRootView" || className == "EXNoopUIView" {
+        retryPresentation()
+        return
+      }
+    }
     var presenter = root
     while let presented = presenter.presentedViewController, !presented.isBeingDismissed {
       presenter = presented
     }
     // Full-screen native modals can detach the root view. Use the visible
     // presenter so recovery remains available while one of those is open.
-    guard presenter.viewIfLoaded?.window != nil else {
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.presentIfNeeded() }
-      return
-    }
-    guard !presenter.isBeingPresented, !presenter.isBeingDismissed else {
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.presentIfNeeded() }
+    guard presenter.viewIfLoaded?.window === window,
+      !presenter.isBeingPresented, !presenter.isBeingDismissed else {
+      retryPresentation()
       return
     }
     let controller = UIHostingController(rootView: ZoridSettingsView(model: model, close: { [weak self] in
       self?.dismissSettings()
     }))
-    controller.modalPresentationStyle = model.hasApp ? .pageSheet : .fullScreen
+    controller.modalPresentationStyle = .pageSheet
     controller.isModalInPresentation = !model.hasApp
-    if model.hasApp { controller.sheetPresentationController?.prefersGrabberVisible = true }
-    controller.presentationController?.delegate = self
+    if let sheet = controller.sheetPresentationController {
+      sheet.detents = [.large()]
+      sheet.prefersGrabberVisible = model.hasApp
+      sheet.prefersEdgeAttachedInCompactHeight = true
+      sheet.delegate = self
+    }
     panel = controller
-    pendingOpen = false
-    if pendingOpeningFeedback { openingFeedback.impactOccurred(intensity: 0.7) }
+    panelRoot = root
+    presenter.present(controller, animated: true) { [weak self, weak controller] in
+      guard let self, let controller, self.panel === controller else { return }
+      guard self.panelIsAttached(to: self.window?.rootViewController) else {
+        self.retryPresentation()
+        return
+      }
+      self.pendingOpen = false
+      self.playOpeningFeedback()
+    }
+    // UIKit can decline a presentation during a window transition.
+    if panelIsAttached(to: root) {
+      playOpeningFeedback()
+    } else {
+      retryPresentation()
+    }
+  }
+
+  private func playOpeningFeedback() {
+    guard pendingOpeningFeedback else { return }
     pendingOpeningFeedback = false
-    presenter.present(controller, animated: model.hasApp) { [weak self, weak controller] in
-      controller?.presentationController?.delegate = self
+    openingFeedback.impactOccurred(intensity: 0.7)
+  }
+
+  private func panelIsAttached(to root: UIViewController?) -> Bool {
+    guard let panel, let root, panelRoot === root else { return false }
+    return panel.presentingViewController != nil || panel.isBeingPresented
+  }
+
+  private func retryPresentation() {
+    guard !presentationRetryPending else { return }
+    presentationRetryPending = true
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+      guard let self else { return }
+      self.presentationRetryPending = false
+      self.presentIfNeeded()
     }
   }
 
@@ -156,8 +233,11 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
     guard model.hasApp else { return }
     pendingOpen = false
     pendingOpeningFeedback = false
-    panel?.dismiss(animated: true)
-    panel = nil
+    guard let panel else { return }
+    panel.dismiss(animated: true) { [weak self, weak panel] in
+      guard let self, self.panel === panel else { return }
+      self.panel = nil
+    }
   }
 
   private func didRelaunch() {
@@ -166,15 +246,15 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
     panel = nil
     pendingOpen = !model.hasApp
     pendingOpeningFeedback = false
-    if let previous {
-      previous.dismiss(animated: false) { [weak self] in self?.presentIfNeeded() }
+    if let previous, previous.presentingViewController != nil {
+      previous.dismiss(animated: true) { [weak self] in self?.presentIfNeeded() }
     } else {
       presentIfNeeded()
     }
   }
 }
 
-extension ZoridShellCoordinator: UIAdaptivePresentationControllerDelegate {
+extension ZoridShellCoordinator: UISheetPresentationControllerDelegate {
   public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
     if panel === presentationController.presentedViewController { panel = nil }
   }

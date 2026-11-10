@@ -40,10 +40,10 @@ jobs:
           fi
       - name: Verify build script with runner Bash
         run: BASH_BINARY=/bin/bash python3 scripts/ios/test-build.py
-      - name: Verify native pairing trust boundary
+      - name: Verify native pairing and shake detection
         run: |
-          swiftc modules/zorid-shell/ios/ZoridPairing.swift scripts/ios/test-native-pairing.swift -o "$RUNNER_TEMP/zorid-native-pairing-checks"
-          "$RUNNER_TEMP/zorid-native-pairing-checks"
+          swiftc modules/zorid-shell/ios/ZoridPairing.swift modules/zorid-shell/ios/ZoridShakeDetector.swift scripts/ios/test-native-pairing.swift -o "$RUNNER_TEMP/zorid-native-shell-checks"
+          "$RUNNER_TEMP/zorid-native-shell-checks"
       - run: bun install --frozen-lockfile
       - name: Configure public update trust anchor
         env:

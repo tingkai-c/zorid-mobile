@@ -20,18 +20,22 @@ final class ZoridHostModel: ObservableObject {
   private let pairingFeedback = UINotificationFeedbackGenerator()
   var onRelaunch: (() -> Void)?
 
-  func refreshLaunchState() {
+  @discardableResult
+  func refreshLaunchState() -> Bool {
     #if DEBUG
     // A development client renders its Metro app without a downloaded release.
     updatesEnabled = false
     hasApp = true
-    return
+    return true
     #else
-    guard AppController.isInitialized(), AppController.sharedInstance.isStarted,
-      AppController.sharedInstance.launchAssetUrl() != nil || !AppController.sharedInstance.isActiveController else { return }
-    let constants = AppController.sharedInstance.getConstantsForModule().toModuleConstantsMap()
+    guard AppController.isInitialized() else { return false }
+    let controller = AppController.sharedInstance
+    // Expo does not start its disabled controller. Its launch state is still available.
+    guard !controller.isActiveController || controller.launchAssetUrl() != nil else { return false }
+    let constants = controller.getConstantsForModule().toModuleConstantsMap()
     updatesEnabled = constants["isEnabled"] as? Bool ?? false
     hasApp = updatesEnabled && !(constants["isEmbeddedLaunch"] as? Bool ?? true)
+    return true
     #endif
   }
 
@@ -163,7 +167,7 @@ final class ZoridHostModel: ObservableObject {
         case .rollBackToEmbedded:
           // A host rollback must not trap first launch in a relaunch loop.
           self.downloaded = self.hasApp
-          self.status = self.hasApp ? "The host requested a reset. Reload to return to connection settings." : "The host has no active app. Deploy an app, then try again."
+          self.status = self.hasApp ? "The host requested a reset. Reload to return to Zorid Settings." : "The host has no active app. Deploy an app, then try again."
         case .failure, .error:
           self.failUpdate()
         }

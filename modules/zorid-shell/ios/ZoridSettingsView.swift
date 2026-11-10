@@ -190,6 +190,7 @@ struct ZoridSettingsView: View {
         Image(systemName: "hand.tap").foregroundStyle(.secondary)
       }
       .accessibilityElement(children: .combine)
+      Label("Shake iPhone", systemImage: "iphone.radiowaves.left.and.right")
       Label {
         VStack(alignment: .leading, spacing: 3) {
           Text("Home Screen Quick Action")

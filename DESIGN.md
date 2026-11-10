@@ -13,7 +13,7 @@ A native launcher that grows through features. First proof: tasks, focus session
 One person using iPhone and eventually desktop. Agents build tools on their paired host. Everyday data must remain usable without that host.
 
 ## Information architecture
-With no downloaded app, show native connection setup. Once loaded, launch the cached app directly, including offline starts. The downloaded app controls its routes and navigation. The demo supplies Today, Tasks, Focus and Calendar tabs. Launcher settings opens through a three-finger hold (one second) or Home Screen icon long press → Zorid Settings. These native entrances remain available independently of app JavaScript. Feature routes and local storage have stable identifiers; shared records connect tasks to sessions.
+With no downloaded app, open Zorid Settings for initial pairing. Once loaded, launch the cached app directly, including offline starts. The downloaded app controls its routes and navigation. The demo supplies Today, Tasks, Focus and Calendar tabs. Open Zorid Settings with a one-second three-finger hold, a shake, or the Zorid Settings quick action on the Home Screen. These entrances are part of the installed binary. Feature routes and local storage have stable identifiers. Shared records connect tasks to sessions.
 
 ## Design principles
 Native controls, readable content, explicit errors. Show saved state before decorative feedback. Small scoped components, no speculative design-system framework.
@@ -22,7 +22,7 @@ Native controls, readable content, explicit errors. Show saved state before deco
 Warm neutral background, white cards, dark charcoal text, teal accent. System fonts and Dynamic Type. Spacing 8/12/16/24/32. Rounded cards, minimal shadows. No required animation or imagery.
 
 ## Components
-Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. The entire connection/settings screen is SwiftUI, owned by the installed binary. Use system grouped forms, semantic colors, Dynamic Type, labeled SF Symbols, and an explicit Done button when an app is loaded. Explicit opening through any entrance produces one soft haptic; automatic setup and repeated requests while already visible stay silent. Pairing success and failure use the corresponding notification feedback.
+Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. Zorid Settings uses a SwiftUI grouped form inside a tall iOS bottom sheet with system transitions. Use semantic colors, Dynamic Type and labeled SF Symbols. When an app is loaded, show the grabber and let the user swipe down or tap Done. Each explicit opening produces one soft haptic. Automatic setup and repeated requests while already visible stay silent. Pairing success and failure use the corresponding notification feedback.
 
 Page headers start with the page title and subtitle. Omit the repeated product/device label above them.
 

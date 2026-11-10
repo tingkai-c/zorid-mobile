@@ -19,6 +19,8 @@ describe('native settings lifecycle integration', () => {
     expect(patched.indexOf('super.scene(scene, willConnectTo: session')).toBeLessThan(patched.indexOf('attach(to: window, shortcut:'));
     expect(patched).toContain('shortcut: connectionOptions.shortcutItem');
     expect(patched).toContain('override func sceneDidBecomeActive');
+    expect(patched).toContain('override func sceneWillResignActive');
+    expect(patched).toContain('stopShakeDetection()');
     expect(patched).toContain('handleShortcut(shortcutItem)');
     expect(patched).toContain('super.windowScene(windowScene, performActionFor: shortcutItem');
     expect(patched).toContain('completionHandler(true)');

@@ -52,5 +52,23 @@ enum NativePairingChecks {
     precondition(ZoridPairing.origin("\(origin)/updates", updateEndpoint: true) == origin)
     precondition(ZoridPairing.origin("\(origin)/updates?x=1", updateEndpoint: true) == nil)
     print("Native pairing validation passed: valid links/responses, host pinning, malformed inputs and bounded credentials.")
+    checkShakeDetection()
+  }
+
+  private static func checkShakeDetection() {
+    let forward = SIMD3<Double>(1.6, 0.2, 0)
+    let backward = -forward
+    var detector = ZoridShakeDetector()
+    precondition(!detector.record(SIMD3(0.6, 0, 0), at: 0))
+    precondition(!detector.record(SIMD3(-0.6, 0, 0), at: 0.1))
+    precondition(!detector.record(forward, at: 1))
+    precondition(!detector.record(forward, at: 1.1))
+    precondition(!detector.record(backward, at: 1.7))
+    precondition(detector.record(forward, at: 1.9))
+    precondition(!detector.record(backward, at: 2.1))
+    precondition(!detector.record(forward, at: 2.2))
+    precondition(!detector.record(backward, at: 3))
+    precondition(detector.record(forward, at: 3.2))
+    print("Native shake detection passed for small movement, single-direction motion, reversals and cooldown.")
   }
 }

@@ -16,6 +16,11 @@ const hooks = `${start}
     ZoridShellCoordinator.shared.attach(to: window)
   }
 
+  override func sceneWillResignActive(_ scene: UIScene) {
+    ZoridShellCoordinator.shared.stopShakeDetection()
+    super.sceneWillResignActive(scene)
+  }
+
   override func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
     if ZoridShellCoordinator.shared.handleShortcut(shortcutItem) {
       completionHandler(true)
@@ -47,6 +52,7 @@ function patchSceneDelegate(source) {
 
 function withZoridShell(config) {
   config = withInfoPlist(config, (mod) => {
+    mod.modResults.NSMotionUsageDescription = 'Zorid uses a shake gesture to open Settings.';
     const items = mod.modResults.UIApplicationShortcutItems ?? [];
     mod.modResults.UIApplicationShortcutItems = [
       ...items.filter((item) => item.UIApplicationShortcutItemType !== shortcutType),

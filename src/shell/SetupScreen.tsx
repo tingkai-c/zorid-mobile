@@ -4,10 +4,10 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface NativeShell {
-  openSettings(): Promise<void>;
+  openSettings(): Promise<boolean | void>;
 }
 
-/** Recovery surface only; native code presents connection settings on first launch. */
+/** Recovery surface only; native code presents Zorid Settings on first launch. */
 export function SetupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
@@ -17,10 +17,10 @@ export function SetupScreen() {
     setError(null);
     try {
       const shell = requireOptionalNativeModule<NativeShell>('ZoridShell');
-      if (!shell) throw new Error('Install the latest Zorid build to open connection settings.');
-      await shell.openSettings();
+      if (!shell) throw new Error('Install the latest Zorid build to open Zorid Settings.');
+      if (await shell.openSettings() === false) throw new Error('Could not open Zorid Settings. Try again.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not open connection settings. Try again.');
+      setError(cause instanceof Error ? cause.message : 'Could not open Zorid Settings. Try again.');
     } finally {
       setOpening(false);
     }
@@ -31,10 +31,10 @@ export function SetupScreen() {
       <Text accessibilityRole="header" style={styles.title}>Set up your app</Text>
       <Text style={styles.body}>Connect to your computer to install an app. Once installed, it opens here, even offline.</Text>
       <Pressable accessibilityRole="button" accessibilityState={{ disabled: opening }} disabled={opening} onPress={openSettings} style={({ pressed }) => [styles.button, { opacity: opening || pressed ? 0.6 : 1 }]}>
-        <Text style={styles.buttonText}>{opening ? 'Opening settings…' : 'Open connection settings'}</Text>
+        <Text style={styles.buttonText}>{opening ? 'Opening settings…' : 'Open Zorid Settings'}</Text>
       </Pressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Text style={styles.body}>To return to settings later, hold three fingers on the screen or use Settings from the app icon’s quick actions.</Text>
+      <Text style={styles.body}>Hold three fingers on the screen, shake your iPhone, or use Zorid Settings from the app icon’s quick actions.</Text>
     </ScrollView>
   </SafeAreaView>;
 }
