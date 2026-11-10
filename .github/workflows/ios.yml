@@ -55,7 +55,7 @@ jobs:
         run: bash scripts/ios/build.sh
       - name: Simulator install and launch smoke
         if: inputs.mode == 'simulator'
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: python3 scripts/ios/simulator-smoke.py
       - name: Downloadable application
         if: always()

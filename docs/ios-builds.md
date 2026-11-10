@@ -19,6 +19,8 @@ gh run download RUN_ID --name zorid-simulator-RUN_NUMBER
 gh workflow run ios.yml -f mode=device
 ```
 
+To retry simulator installation without recompiling, run `gh workflow run ios-smoke.yml -f run_id=BUILD_RUN_ID`. It verifies and reuses the simulator ZIP from that run. First installation is bounded at five minutes; failures retain simulator diagnostics and attempt a screenshot.
+
 Artifacts expire after seven days. The workflow does not publish GitHub Releases or upload the Xcode archive. Signed build logs/result bundles remain on the disposable runner because they can contain provisioning metadata. Failures emit fixed diagnostic categories matched against error lines, with private-log line numbers; raw free-form profile/certificate names are never echoed. A signed IPA necessarily embeds provisioning profiles, including registered-device identifiers; Actions artifacts in a public repository must not be treated as private storage. No separate profiles, keys or passwords are uploaded.
 
 ## Toolchain
