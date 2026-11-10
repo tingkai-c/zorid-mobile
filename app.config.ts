@@ -20,7 +20,8 @@ const config: ExpoConfig = {
   } : { enabled: false },
   extra: { updateOrigin: updateURL ? new URL(updateURL).origin : null },
   plugins: [
-    'expo-router', 'expo-sqlite', 'expo-secure-store',
+    ['expo-router', { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless', 'Cross-Origin-Opener-Policy': 'same-origin' } }],
+    'expo-sqlite', 'expo-secure-store',
     ['expo-camera', { cameraPermission: 'Allow Zorid to scan your laptop pairing code.', microphonePermission: false, recordAudioAndroid: false }],
     ['expo-widgets', {
       bundleIdentifier: 'app.zorid.mobile.widgets', groupIdentifier: 'group.app.zorid.mobile', enablePushNotifications: false,

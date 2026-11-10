@@ -11,7 +11,10 @@ signable.each do |target|
     raise 'Missing profile for app or extension target' if !settings['profiles'].empty? && profile.nil?
     config.build_settings['DEVELOPMENT_TEAM'] = settings.fetch('team')
     config.build_settings['CODE_SIGN_STYLE'] = profile ? 'Manual' : 'Automatic'
-    config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = 'Apple Distribution'
+    # Automatic archive signing uses a development identity; export re-signs for devices.
+    identity = profile ? 'Apple Distribution' : 'Apple Development'
+    config.build_settings['CODE_SIGN_IDENTITY'] = identity
+    config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = identity
     if profile
       config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = profile
     else

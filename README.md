@@ -15,7 +15,7 @@ bun run lint
 bun run export:ios
 ```
 
-Expo Go can preview supported app screens. Signed standalone builds are needed to validate OTA delivery, widgets, and Live Activities. Web is a preview target, not the planned desktop app.
+Expo Go can preview supported app screens. Signed standalone builds are needed to validate OTA delivery, widgets, and Live Activities. Web is a preview target, not the planned desktop app; see [web preview](docs/web-preview.md) for the SQLite isolation headers it needs.
 
 ## Build and install
 

@@ -4,11 +4,11 @@ Development, dependency installs, tests and JavaScript export run on WSL. GitHub
 
 ## Workflows and artifacts
 
-`Check foundation` runs Bun tests, TypeScript, ESLint and iOS JavaScript export on Ubuntu for pushes and pull requests. Its artifact is an export, not an installable application.
+`Check foundation` runs Bun tests, TypeScript, ESLint and iOS JavaScript export on Ubuntu for pushes and pull requests. Its artifact is an export, not an installable application. An independent job starts an ephemeral PostgreSQL 18 service, applies the migration to an empty database and runs the transactional schema constraint checks. The CI password is disposable and is not a production credential.
 
 Manually run `Build iOS`, selecting:
 
-- `simulator` (default): unsigned Release build containing the native widget extension, packaged as `Zorid-simulator.zip`. It cannot install on a physical iPhone. Build logs and the Xcode result bundle are separate diagnostic artifacts.
+- `simulator` (default): unsigned Release build containing the native widget extension, packaged as `Zorid-simulator.zip`. It cannot install on a physical iPhone. The workflow then boots an available iPhone simulator, installs the app, verifies that launch returns a PID and that the process survives ten seconds, and captures a screenshot. Build logs, the Xcode result bundle, screenshot and smoke result are separate diagnostic artifacts. Shutdown runs even if installation/launch fails. A successful smoke result does not assert app behavior; inspect the screenshot and perform device acceptance separately.
 - `device`: signed registered-device Release archive exported as `Zorid.ipa`. Install on a phone included in both provisioning profiles. IPA, checksum and commit/run metadata form the downloadable artifact.
 
 ```sh
@@ -50,7 +50,7 @@ Expected bundle IDs are `app.zorid.mobile` and `app.zorid.mobile.widgets`, shari
 
 The script rejects expired, wildcard, development and wrong-team profiles, then assigns each target its own profile by bundle ID. Xcode validates remaining entitlement/certificate compatibility. Profiles must remain valid at installation and use.
 
-Without the profile ZIP, automatic provisioning requires `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID`, and `ASC_API_ISSUER_ID`: a team App Store Connect API key with adequate Developer Resources permissions. Xcode receives `-allowProvisioningUpdates` and may create/update application-specific provisioning resources. This does not guarantee registration of every capability or App Group; supply explicit profiles if Xcode cannot do it. The distribution certificate is required in either branch. Apple documents the authentication flags in [Distribute apps in Xcode with cloud signing](https://developer.apple.com/videos/play/wwdc2021/10204/).
+Without the profile ZIP, automatic provisioning requires `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID`, and `ASC_API_ISSUER_ID`: a team App Store Connect API key with adequate Developer Resources permissions. Xcode receives `-allowProvisioningUpdates` and may create/update application-specific provisioning resources. This does not guarantee registration of every capability or App Group; supply explicit profiles if Xcode cannot do it. Automatic archives use Apple Development signing; export selects the available distribution signing identity for registered-device installation. Xcode may create a development certificate when the runner has none, so prefer reusable credentials/manual profiles for repeated builds rather than accumulating certificates. The distribution certificate is required in either branch. Apple documents the authentication flags in [Distribute apps in Xcode with cloud signing](https://developer.apple.com/videos/play/wwdc2021/10204/).
 
 Secrets are decoded in a restricted runner temporary directory and imported into a temporary keychain. Unconditional cleanup removes that keychain, input profiles, decoded secrets and signing logs. Only trusted workflow revisions should receive secrets.
 

@@ -26,3 +26,27 @@ jobs:
           path: dist/ios
           if-no-files-found: error
           retention-days: 7
+  postgres-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: zorid
+          POSTGRES_DB: zorid
+          POSTGRES_PASSWORD: ci-only-ephemeral
+        options: >-
+          --health-cmd "pg_isready -U zorid -d zorid"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migration to empty PostgreSQL 18 database
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: docker exec -i "$POSTGRES_CONTAINER" psql -U zorid -d zorid -v ON_ERROR_STOP=1 < backend/migrations/001_workspace.sql
+      - name: Verify schema constraints
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: docker exec -i "$POSTGRES_CONTAINER" psql -U zorid -d zorid -v ON_ERROR_STOP=1 < backend/tests/schema.sql

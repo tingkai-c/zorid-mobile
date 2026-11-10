@@ -51,7 +51,12 @@ jobs:
         run: bash scripts/ios/signing.sh
       - name: Compile and package
         run: bash scripts/ios/build.sh
+      - name: Simulator install and launch smoke
+        if: inputs.mode == 'simulator'
+        timeout-minutes: 8
+        run: python3 scripts/ios/simulator-smoke.py
       - name: Downloadable application
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zorid-${{ inputs.mode }}-${{ github.run_number }}
@@ -66,7 +71,11 @@ jobs:
           path: |
             build/build.log
             build/Build.xcresult
+            build/smoke
           retention-days: 7
+      - name: Shut down smoke simulator
+        if: always() && inputs.mode == 'simulator'
+        run: python3 scripts/ios/simulator-smoke.py --cleanup
       - name: Remove signing material
         if: always()
         run: bash scripts/ios/cleanup.sh

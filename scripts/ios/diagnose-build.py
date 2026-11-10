@@ -9,17 +9,23 @@ import sys
 from pathlib import Path
 
 RULES = [
+    (r'no accounts|add.*account|account.*not.*found|requires.*developer account', 'Xcode cannot find an authorized developer account. Check the team API key and Developer Resources access.'),
+    (r'failed to register bundle|identifier.*not available|identifier.*cannot be registered', 'App identifier registration failed. Check ownership and capabilities for both target bundle IDs.'),
+    (r'certificate.*limit|maximum.*certificates|revoke.*certificate', 'The team development certificate limit may be reached. Reuse a valid development identity; do not revoke unrelated certificates.'),
     (r'app.?groups?|com\.apple\.security\.application-groups', 'App Group entitlement/registration failed. Check both app identifiers and their shared group.'),
     (r'no profiles|requires a provisioning profile|couldn.t find.*profile', 'A required provisioning profile is missing. Check each app/extension bundle ID.'),
     (r'profile.*(doesn.t|does not|doesn’t).*include|profile.*doesn.t support', 'A profile does not authorize the requested entitlement, certificate or device.'),
     (r'no signing certificate|certificate.*(expired|invalid|not found)|private key', 'A signing certificate/private key is missing, expired or incompatible.'),
     (r'authentication|unauthorized|not authorized|forbidden|permission|access denied', 'Developer Resources authentication or permissions failed. Check the team API key access.'),
-    (r'communication with apple|connection|timed out|network', 'Apple provisioning service or network communication failed.'),
+    (r'communication with apple|connection|timed out|network|service.*unavailable|HTTP.*(?:500|502|503)', 'Apple provisioning service or network communication failed.'),
     (r'conflicting provisioning|automatic.*manual|manually.*automatically', 'Automatic and manual signing settings conflict.'),
     (r'provision|signing|codesign', 'Signing failed. Check team, bundle IDs, profiles and distribution certificate compatibility.'),
     (r'no such module|module.*not found', 'A native module could not be resolved. Check generated native dependencies and CocoaPods.'),
     (r'cannot find|undeclared|no member|has no member', 'Native compilation failed because a symbol or API is unavailable.'),
     (r'undefined symbol|linker command|duplicate symbol', 'Native linking failed; inspect dependency and target linkage.'),
+    (r'compileassetcatalog|actool', 'Asset catalog compilation failed.'),
+    (r'swiftcompile|swiftemitmodule|emit-module', 'Swift module compilation failed.'),
+    (r'compilec|clang', 'Clang compilation failed.'),
     (r'phase.?script|script execution', 'A native build script failed; check bundling and dependency preparation.'),
 ]
 
