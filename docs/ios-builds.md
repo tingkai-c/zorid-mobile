@@ -77,3 +77,9 @@ Download/extract the device artifact. Use Apple Configurator's Add → Apps → 
 If full Xcode is already installed, the lightweight command-line alternative is `bash scripts/ios/install-mac.sh Zorid.ipa DEVICE-ID EXPECTED-SHA256`. It verifies the optional checksum, extracts the app, installs it over the existing version, and launches it without compiling. Keep the phone unlocked and approve Trust if prompted. Obtain its identifier with `xcrun devicectl list devices`; standalone Command Line Tools do not include `devicectl`. See [Apple's device command-line guide](https://developer.apple.com/documentation/xcode/interacting-with-devices-using-the-command-line).
 
 Simulator compilation does not prove device installation; signing does not prove launch behavior. Device acceptance still needs pairing over Tailscale, offline startup, SQLite persistence, update compatibility/rollback and actual widget/Live Activity rendering. New native capabilities or extension changes require a native rebuild; JavaScript releases come directly from the paired host.
+
+### Repeated installation from WSL
+
+After authorizing a dedicated SSH key on the Mac, keep its connection details in the private, mode-0600 file `~/.local/share/zorid/macos-install-private.json`. Required fields are `host`, `user`, `identityFile` and `deviceIdentifier` (from CoreDevice discovery). Never commit or print this file.
+
+Run `python3 scripts/ios/install-remote.py path/to/Zorid.ipa` on WSL; `--config` selects another private config file. The helper computes the IPA checksum, transfers it and the Mac installer through SSH, installs over the existing app, launches it, and removes its temporary Mac transfer directory. Detailed command output stays in a mode-0600 local log; public progress omits device and account metadata. The Mac must remain awake and reachable, with the iPhone connected and unlocked. This does not build anything on the Mac or uninstall the existing app.

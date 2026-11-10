@@ -39,6 +39,6 @@ if [ "${#apps[@]}" -ne 1 ] || [ ! -d "${apps[0]}" ]; then
 fi
 echo 'Keep the iPhone unlocked; approve Trust if it appears.'
 echo 'Installing Zorid over the existing app…'
-xcrun devicectl device install app --device "$device" "${apps[0]}"
+xcrun devicectl device install app --timeout 180 --device "$device" "${apps[0]}"
 echo 'Launching Zorid…'
-xcrun devicectl device process launch --device "$device" app.zorid.mobile
+xcrun devicectl device process launch --timeout 60 --device "$device" app.zorid.mobile
