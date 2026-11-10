@@ -38,7 +38,7 @@ struct ZoridSettingsView: View {
         Button("Disconnect Host", role: .destructive) { model.disconnect() }
         Button("Cancel", role: .cancel) {}
       } message: {
-        Text("Your downloaded app and personal data will stay on this device.")
+        Text("Your personal data stays on this device. After restarting Zorid, pair and download your app again to reopen it.")
       }
       .sheet(isPresented: $scanning) { scanner }
     }
@@ -174,7 +174,7 @@ struct ZoridSettingsView: View {
       }
       .disabled(model.busy)
     } footer: {
-      Text("Removes the saved connection. Your downloaded app and personal data stay on this device.")
+      Text("Removes the saved connection. Your personal data stays saved; after restarting, you’ll need to pair and download the app again.")
     }
   }
 

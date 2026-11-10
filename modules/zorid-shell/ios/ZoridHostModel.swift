@@ -199,7 +199,7 @@ final class ZoridHostModel: ObservableObject {
     do { try applyHeaders() }
     catch { fail("The connection was removed. Restart Zorid to finish resetting the updater."); return }
     errorMessage = nil
-    status = "Host disconnected. Your saved app and personal data remain on this device."
+    status = "Host disconnected. Your data is saved. After restarting, pair and download your app again."
   }
 
   func reportCameraFailure(_ message: String) { errorMessage = message }
