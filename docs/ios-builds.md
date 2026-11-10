@@ -74,4 +74,6 @@ Secrets are decoded in a restricted runner temporary directory and imported into
 
 Download/extract the device artifact. Use Apple Configurator's Add → Apps → Choose from my Mac flow with the connected registered iPhone. Enable Developer Mode if iOS asks. No source checkout or CocoaPods is needed on the Mac.
 
+If full Xcode is already installed, the lightweight command-line alternative is `bash scripts/ios/install-mac.sh Zorid.ipa DEVICE-ID EXPECTED-SHA256`. It verifies the optional checksum, extracts the app, installs it over the existing version, and launches it without compiling. Keep the phone unlocked and approve Trust if prompted. Obtain its identifier with `xcrun devicectl list devices`; standalone Command Line Tools do not include `devicectl`. See [Apple's device command-line guide](https://developer.apple.com/documentation/xcode/interacting-with-devices-using-the-command-line).
+
 Simulator compilation does not prove device installation; signing does not prove launch behavior. Device acceptance still needs pairing over Tailscale, offline startup, SQLite persistence, update compatibility/rollback and actual widget/Live Activity rendering. New native capabilities or extension changes require a native rebuild; JavaScript releases come directly from the paired host.
