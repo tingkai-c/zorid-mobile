@@ -17,5 +17,6 @@ security unlock-keychain -p "$keychain_password" "$keychain"
 security import "$signing_dir/certificate.p12" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain" >/dev/null 2>&1
 security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" >/dev/null 2>&1
 security list-keychains -d user -s "$keychain" login.keychain-db
+python3 scripts/ios/select-signing-identity.py
 ruby scripts/ios/configure-signing.rb
 rm -f "$signing_dir/certificate.p12"

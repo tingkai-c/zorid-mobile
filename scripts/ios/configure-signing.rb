@@ -12,7 +12,7 @@ signable.each do |target|
     config.build_settings['DEVELOPMENT_TEAM'] = settings.fetch('team')
     config.build_settings['CODE_SIGN_STYLE'] = profile ? 'Manual' : 'Automatic'
     # Automatic archive signing uses a development identity; export re-signs for devices.
-    identity = profile ? 'Apple Distribution' : 'Apple Development'
+    identity = profile ? settings.fetch('signingIdentity') : 'Apple Development'
     config.build_settings['CODE_SIGN_IDENTITY'] = identity
     config.build_settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = identity
     if profile
