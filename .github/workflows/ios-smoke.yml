@@ -1,0 +1,45 @@
+name: Smoke existing iOS simulator build
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Build iOS run containing a zorid-simulator artifact
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  smoke:
+    runs-on: xcode-27
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download simulator application from this repository
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+          pattern: zorid-simulator-*
+          merge-multiple: true
+          path: simulator-artifact
+      - name: Unpack existing simulator application
+        run: |
+          test -f simulator-artifact/Zorid-simulator.zip
+          (cd simulator-artifact && shasum -a 256 -c SHA256SUMS)
+          mkdir -p build/DerivedData/Build/Products/Release-iphonesimulator
+          ditto -x -k simulator-artifact/Zorid-simulator.zip build/DerivedData/Build/Products/Release-iphonesimulator
+      - name: Install and launch smoke
+        timeout-minutes: 12
+        run: python3 scripts/ios/simulator-smoke.py
+      - name: Screenshot and simulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-smoke-${{ github.run_number }}
+          path: build/smoke
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Shut down simulator
+        if: always()
+        run: python3 scripts/ios/simulator-smoke.py --cleanup

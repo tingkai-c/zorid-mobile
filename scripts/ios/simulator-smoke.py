@@ -14,8 +14,24 @@ BUNDLE = 'app.zorid.mobile'
 
 
 def simctl(*args, timeout=60):
-    return subprocess.run(['xcrun', 'simctl', *args], check=True, text=True,
-                          capture_output=True, timeout=timeout).stdout
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    with (OUTPUT / 'simctl.log').open('a') as log:
+        log.write(f'simctl {" ".join(args)} (timeout={timeout}s)\n')
+        try:
+            result = subprocess.run(['xcrun', 'simctl', *args], check=True, text=True,
+                                    capture_output=True, timeout=timeout)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            log.write(f'{type(error).__name__}\n')
+            for value in (error.stdout, error.stderr):
+                if isinstance(value, bytes):
+                    value = value.decode(errors='replace')
+                if value:
+                    log.write(value[-40000:] + '\n')
+            print(f'simctl {args[0]} failed; diagnostics saved to build/smoke/simctl.log', file=sys.stderr)
+            raise
+        if result.stderr:
+            log.write(result.stderr[-40000:] + '\n')
+        return result.stdout
 
 
 def select_device(listing):
@@ -50,7 +66,8 @@ def main():
     DEVICE_FILE.write_text(device)
     try:
         simctl('bootstatus', device, '-b', timeout=180)
-        simctl('install', device, str(APP), timeout=90)
+        # Cold CI simulators can need more than 90 seconds to install the extension bundle.
+        simctl('install', device, str(APP), timeout=300)
         launch = simctl('launch', device, BUNDLE, timeout=60)
         (OUTPUT / 'launch.txt').write_text(launch)
         match = re.search(r':\s*(\d+)\s*$', launch)
@@ -66,6 +83,13 @@ def main():
             'App installed, launch returned a PID, process survived 10 seconds, screenshot captured.\n'
             'No assertions about navigation, data, widgets, pairing or update behavior.\n')
         print('Simulator launch smoke passed; screenshot saved to build/smoke/launch.png')
+    except Exception as error:
+        (OUTPUT / 'failure.txt').write_text(f'{type(error).__name__}: {error}\n')
+        try:
+            simctl('io', device, 'screenshot', str(OUTPUT / 'failure.png'), timeout=30)
+        except (subprocess.SubprocessError, OSError):
+            pass
+        raise
     finally:
         shutdown()
 
