@@ -24,6 +24,8 @@ Warm neutral background, white cards, dark charcoal text, teal accent. System fo
 ## Components
 Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Native tab navigation and safe areas.
 
+Page headers start with the page title and subtitle. Omit the repeated product/device label above them.
+
 ## Accessibility
 Aim for WCAG AA contrast, labeled controls, 44-point minimum hit areas, scalable text. Forms remain usable with keyboard visible; status isn't conveyed by color alone. Avoid ticking screen-reader announcements.
 
