@@ -16,7 +16,8 @@ team = os.environ['IOS_TEAM_ID']
 profiles = {}
 encoded_profiles = os.environ.get('IOS_PROFILES_ZIP_BASE64')
 if encoded_profiles:
-    destination = Path.home() / 'Library/MobileDevice/Provisioning Profiles'
+    # Xcode 16+ uses this location; the workflow requires Xcode 27.
+    destination = Path.home() / 'Library/Developer/Xcode/UserData/Provisioning Profiles'
     destination.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded_profiles, validate=True))) as archive:
         for member in archive.infolist():
