@@ -4,6 +4,7 @@ import * as Updates from 'expo-updates';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { parsePairingLink, trustedOrigin, validatePairedHost, type PairedHost } from './pairing';
+import { PairingError, pairingStep } from './pairing-errors';
 
 const storageKey = 'zorid.pairedHost.v1';
 const configuredOrigin: unknown = Constants.expoConfig?.extra?.updateOrigin;
@@ -41,11 +42,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         const saved = await SecureStore.getItemAsync(storageKey, storageOptions);
         if (!saved) { applyHeaders(null); return; }
         const restored = validatePairedHost(JSON.parse(saved), configuredOrigin);
-        applyHeaders(restored);
+        await pairingStep('updater', () => applyHeaders(restored));
         if (active) { setHost(restored); setStatus('Host paired. Updates are checked when you request them.'); }
-      } catch {
+      } catch (reason) {
         applyHeaders(null);
-        if (active) setError('Could not restore the host connection. Pair again or remove the saved connection.');
+        if (active) setError(reason instanceof PairingError ? reason.message : 'Could not restore the host connection. Pair again or remove the saved connection.');
       } finally { if (active) setLoading(false); }
     })();
     return () => { active = false; };
@@ -55,7 +56,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     if (operation.current || loading) return false;
     operation.current = true; setBusy(true); setError(null);
     try { await action(); return true; }
-    catch { setError(failure); return false; }
+    catch (reason) { setError(reason instanceof PairingError ? reason.message : failure); return false; }
     finally { operation.current = false; setBusy(false); }
   }
   async function pair(link: string) {
@@ -66,14 +67,20 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     return run(async () => {
       const abort = new AbortController(); const timer = setTimeout(() => abort.abort(), 15_000);
       try {
-        const response = await fetch(`${offer.origin}/pair`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, redirect: 'error', signal: abort.signal,
-          body: JSON.stringify({ token: offer.token, deviceName: Platform.OS === 'ios' ? 'Zorid iPhone' : 'Zorid Android' }),
-        });
-        if (!response.ok || (response.url && response.url !== `${offer.origin}/pair`)) throw new Error('Pairing rejected');
-        const paired = validatePairedHost(await response.json(), configuredOrigin);
-        await SecureStore.setItemAsync(storageKey, JSON.stringify(paired), storageOptions);
-        applyHeaders(paired); setHost(paired); setDownloaded(false);
+        let response: Response;
+        try {
+          response = await fetch(`${offer.origin}/pair`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, redirect: 'error', signal: abort.signal,
+            body: JSON.stringify({ token: offer.token, deviceName: Platform.OS === 'ios' ? 'Zorid iPhone' : 'Zorid Android' }),
+          });
+        } catch { throw new PairingError(abort.signal.aborted ? 'timeout' : 'network'); }
+        if (response.status === 401) throw new PairingError('expired');
+        if (!response.ok || (response.url && response.url !== `${offer.origin}/pair`)) throw new PairingError('rejected');
+        const paired = await pairingStep('response', async () => validatePairedHost(await response.json(), configuredOrigin));
+        await pairingStep('storage', () => SecureStore.setItemAsync(storageKey, JSON.stringify(paired), storageOptions));
+        // Preserve the saved credential if native updater setup fails; a corrected binary can restore it.
+        await pairingStep('updater', () => applyHeaders(paired));
+        setHost(paired); setDownloaded(false);
         setStatus('Host paired. You can now check for a compatible release.');
       } finally { clearTimeout(timer); }
     }, 'Pairing failed. Check Tailscale and use a fresh pairing code from your host.');

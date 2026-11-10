@@ -14,6 +14,8 @@ bun host/cli.ts pair
 
 The default private state directory is `~/.local/share/zorid`. Override it with `ZORID_HOME` or `--state`. It contains the SQLite registry, content-addressed assets, RSA private key, and public certificate. The directory is mode 0700 and private files mode 0600. Keep it out of Git, shared folders, build artifacts, and public logs. Back it up privately: losing the signing key requires rebuilding the installed binary with a new trust certificate.
 
+The native update configuration must declare `requestHeaders.Authorization` before `setUpdateRequestHeadersOverride` can set a paired credential. Zorid embeds the nonsecret, unauthorized placeholder `Bearer unpaired`; the actual bearer stays in SecureStore. Expo restricts overrides to embedded header keys ([official documentation](https://docs.expo.dev/eas-update/channel-surfing/)). Device build 10 omitted that declaration: the host could redeem the offer, but the app then reported failure when applying update headers. Install a corrected binary over that version to retain local data and the saved credential. JavaScript OTA cannot repair the old binary's header allowlist.
+
 `init` outputs the **public** certificate path. Set `ZORID_UPDATE_URL` to the origin plus `/updates` and `ZORID_UPDATE_CERTIFICATE` to this public certificate for native builds. The matching Expo code-signing metadata is `{ "keyid": "main", "alg": "rsa-v1_5-sha256" }`. The host itself listens only on loopback. HTTPS termination is handled by Tailscale Serve. `init --dev-loopback --url http://127.0.0.1:8787` exists for local service development; an iPhone cannot use the host's loopback address.
 
 ## Pairing contract

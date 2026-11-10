@@ -15,6 +15,9 @@ const config: ExpoConfig = {
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
   updates: updateURL ? {
     enabled: true, url: updateURL, checkAutomatically: 'NEVER', fallbackToCacheTimeout: 0,
+    // Expo permits overriding only header keys declared in the installed binary.
+    // This public placeholder grants no access; pairing supplies the real bearer.
+    requestHeaders: { Authorization: 'Bearer unpaired' },
     codeSigningCertificate: relative(process.cwd(), resolve(certificate!)),
     codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
   } : { enabled: false },
