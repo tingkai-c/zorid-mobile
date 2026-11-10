@@ -14,3 +14,7 @@
 Build 11 is installed and launched on the registered iPhone. Verify pairing, offline restart, persisted tasks/timer history, native widgets/Live Activities, and signed JavaScript update/recovery behavior. See [installation instructions](ios-builds.md#installation-and-acceptance) and [host pairing](host.md).
 
 The backend currently supplies a PostgreSQL schema and constraint tests. Cross-device data synchronization and its authenticated API are not implemented. The widget renderer and Focus example are a foundation, not a general widget editor.
+
+## First visible OTA release
+
+Commit `af12a5a` removes the repeated product/device label from the shared screen component used by all five routes. Published signed iOS release `80ce8671-35dd-444b-8004-95e55fd1acbf` for runtime `zorid-1`. An authenticated HTTPS probe verified the manifest signature and hashes of the bundle plus 23 assets; the removed header is absent from the published bundle. The temporary probe device was revoked. All 23 tests (92 assertions), typecheck, lint and iOS JavaScript export passed. Applying this release on the phone still requires Settings → Check and download update → Reload and apply update; publication alone does not establish native OTA acceptance.
