@@ -23,27 +23,43 @@ async function main() {
   } catch {
     throw new Error('API private key could not sign an ES256 authentication token. Check key format.');
   }
-  for (const resource of ['bundleIds', 'certificates', 'devices']) {
+  const testflight = process.env.BUILD_MODE === 'testflight';
+  const bundleId = 'app.zorid.mobile';
+  const preflight = testflight ? 'App Store Connect' : 'Developer Resources';
+  for (const resource of testflight ? ['apps'] : ['bundleIds', 'certificates', 'devices']) {
+    const url = new URL(`https://api.appstoreconnect.apple.com/v1/${resource}`);
+    url.searchParams.set('limit', '1');
+    if (testflight) url.searchParams.set('filter[bundleId]', bundleId);
     let response;
     try {
-      response = await fetch(`https://api.appstoreconnect.apple.com/v1/${resource}?limit=1`, {
+      response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000),
       });
     } catch {
-      throw new Error('Developer Resources preflight network request failed.');
+      throw new Error(`${preflight} preflight network request failed.`);
     }
-    // Do not read or print the response body: even error responses can contain private IDs.
-    console.log(`Developer Resources ${resource} read preflight: HTTP ${response.status}`);
-    await response.body?.cancel();
+    // Even error responses can contain private IDs.
+    console.log(`${preflight} ${resource} read preflight: HTTP ${response.status}`);
     if (!response.ok) {
+      await response.body?.cancel();
       throw new Error(response.status === 401
         ? 'API authentication rejected. Verify the runner team key, key ID and issuer ID belong together.'
         : response.status === 403
-          ? 'API access forbidden. Check Developer Resources permissions and current account agreements.'
-          : 'Developer Resources preflight failed. Check the reported HTTP status.');
+          ? `API access forbidden. Check ${preflight} permissions and current account agreements.`
+          : `${preflight} preflight failed. Check the reported HTTP status.`);
+    }
+    if (testflight) {
+      const result = await response.json().catch(() => null);
+      if (!Array.isArray(result?.data)) throw new Error('App Store Connect app lookup returned an invalid response.');
+      if (!result.data.some((app) => app.attributes?.bundleId === bundleId)) {
+        throw new Error('Create or grant the runner access to the Zorid app record in App Store Connect before uploading.');
+      }
+    } else {
+      await response.body?.cancel();
     }
   }
-  console.log('Runner API read access confirmed; this does not prove capability registration or write permissions.');
+  console.log(testflight ? 'Zorid app record confirmed in App Store Connect.'
+    : 'Runner API read access confirmed; this does not prove capability registration or write permissions.');
 }
 
 if (process.argv[1]?.endsWith('check-api-access.mjs')) {

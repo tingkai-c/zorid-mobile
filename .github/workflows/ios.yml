@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Simulator or signed registered-device IPA
+        description: Simulator, signed registered-device IPA, or internal TestFlight upload
         type: choice
-        options: [simulator, device]
+        options: [simulator, device, testflight]
         default: simulator
 permissions:
   contents: read
@@ -30,6 +30,14 @@ jobs:
       - run: |
           xcodebuild -version
           test "$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)" -ge 27
+      - name: Verify internal TestFlight export support
+        if: inputs.mode == 'testflight'
+        run: |
+          xcodebuild -help > "$RUNNER_TEMP/xcodebuild-help.txt" 2>&1
+          if ! grep -q 'testFlightInternalTestingOnly' "$RUNNER_TEMP/xcodebuild-help.txt"; then
+            echo 'This Xcode version does not advertise internal-only TestFlight export.' >&2
+            exit 1
+          fi
       - name: Verify build script with runner Bash
         run: BASH_BINARY=/bin/bash python3 scripts/ios/test-build.py
       - name: Verify native pairing trust boundary
@@ -45,11 +53,12 @@ jobs:
       - run: bunx expo prebuild --platform ios --no-install
       - run: pod install --project-directory=ios
       - name: Install signing material
-        if: inputs.mode == 'device'
+        if: inputs.mode != 'simulator'
         env:
           IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
           IOS_PROFILES_ZIP_BASE64: ${{ secrets.IOS_PROFILES_ZIP_BASE64 }}
+          IOS_APP_STORE_PROFILES_ZIP_BASE64: ${{ secrets.IOS_APP_STORE_PROFILES_ZIP_BASE64 }}
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
@@ -61,7 +70,7 @@ jobs:
         if: inputs.mode == 'simulator'
         timeout-minutes: 12
         run: python3 scripts/ios/simulator-smoke.py
-      - name: Downloadable application
+      - name: Downloadable build artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -70,12 +79,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Encrypt private failure diagnostics
-        if: failure() && inputs.mode == 'device'
+        if: failure() && inputs.mode != 'simulator'
         env:
           ZORID_DIAGNOSTIC_CERTIFICATE_BASE64: ${{ vars.ZORID_DIAGNOSTIC_CERTIFICATE_BASE64 }}
         run: python3 scripts/ios/encrypt-diagnostics.py
       - name: Encrypted signing diagnostics
-        if: failure() && inputs.mode == 'device'
+        if: failure() && inputs.mode != 'simulator'
         uses: actions/upload-artifact@v4
         with:
           name: encrypted-signing-diagnostics-${{ github.run_number }}

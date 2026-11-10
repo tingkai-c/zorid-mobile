@@ -10,7 +10,12 @@ const config: ExpoConfig = {
   name: 'Zorid', slug: 'zorid-mobile', scheme: 'zorid', version: '0.1.0',
   orientation: 'portrait', userInterfaceStyle: 'light', icon: './assets/icon.png',
   runtimeVersion: 'zorid-2',
-  ios: { bundleIdentifier: 'app.zorid.mobile', supportsTablet: true, buildNumber: process.env.GITHUB_RUN_NUMBER ?? '1' },
+  ios: {
+    bundleIdentifier: 'app.zorid.mobile',
+    supportsTablet: true,
+    buildNumber: process.env.GITHUB_RUN_NUMBER ?? '1',
+    config: { usesNonExemptEncryption: false },
+  },
   android: { package: 'app.zorid.mobile' },
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
   updates: updateURL ? {
