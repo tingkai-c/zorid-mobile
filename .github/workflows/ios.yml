@@ -1,0 +1,72 @@
+name: Build iOS
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Simulator or signed registered-device IPA
+        type: choice
+        options: [simulator, device]
+        default: simulator
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}-${{ inputs.mode }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      BUILD_MODE: ${{ inputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: |
+          xcodebuild -version
+          test "$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)" -ge 27
+      - run: bun install --frozen-lockfile
+      - name: Configure public update trust anchor
+        env:
+          ZORID_UPDATE_URL: ${{ vars.ZORID_UPDATE_URL }}
+          ZORID_UPDATE_CERTIFICATE_BASE64: ${{ vars.ZORID_UPDATE_CERTIFICATE_BASE64 }}
+        run: python3 scripts/ios/configure-updates.py
+      - run: bunx expo prebuild --platform ios --no-install
+      - run: pod install --project-directory=ios
+      - name: Install signing material
+        if: inputs.mode == 'device'
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROFILES_ZIP_BASE64: ${{ secrets.IOS_PROFILES_ZIP_BASE64 }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: bash scripts/ios/signing.sh
+      - name: Compile and package
+        run: bash scripts/ios/build.sh
+      - name: Downloadable application
+        uses: actions/upload-artifact@v4
+        with:
+          name: zorid-${{ inputs.mode }}-${{ github.run_number }}
+          path: build/artifacts/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Unsigned build diagnostics
+        if: always() && inputs.mode == 'simulator'
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-diagnostics-${{ github.run_number }}
+          path: |
+            build/build.log
+            build/Build.xcresult
+          retention-days: 7
+      - name: Remove signing material
+        if: always()
+        run: bash scripts/ios/cleanup.sh
