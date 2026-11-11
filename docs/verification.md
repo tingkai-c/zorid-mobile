@@ -1,5 +1,19 @@
 # Foundation delivery evidence
 
+## Downloaded actions, shortcuts and deep links
+
+Implementation `81765a5` adds the shared JavaScriptCore action runtime, App Group SQLite migration, durable action receipts and surface effects, Home Screen quick actions and queued custom-scheme routes. The Focus demo exercises Pause, Resume and Finish from the app, widget and Live Activity.
+
+[Foundation CI](https://github.com/tingkai-c/zorid-mobile/actions/runs/42964110273) passed: 64 Bun tests with 357 assertions, typecheck, lint, generated handler freshness, PostgreSQL schema checks and iOS JavaScript export. [Download the JavaScript export](https://github.com/tingkai-c/zorid-mobile/actions/runs/42964110273/artifacts/13830746056).
+
+Native checks on [the macOS runner](https://github.com/tingkai-c/zorid-mobile/actions/runs/42964110769) passed: 73 core checks for actual JavaScriptCore/SQLite execution and legacy WAL migration, the compiled Focus lifecycle, route persistence and eight surface-effect failure/recovery scenarios. In particular, a rejected Live Activity start cannot block a later widget update; pending work retains a bounded continuation cursor.
+
+Physical-device acceptance remains for widget/Live Activity buttons, locked-device behavior, actual timeline refresh, cold/warm navigation and the Home Screen menu. These checks do not establish those device behaviors. Independent app bundles, universal links and cross-device data synchronization remain unimplemented.
+
+TestFlight build 19 compiled, signed and uploaded successfully. Its [upload receipt](https://github.com/tingkai-c/zorid-mobile/actions/runs/42964110769/artifacts/13830918675) identifies implementation commit `81765a5`. A separate App Store Connect API check confirmed processing `VALID`, audience `INTERNAL_ONLY`, internal state `IN_BETA_TESTING` and assignment to the internal testing group.
+
+Published runtime `zorid-3` release `7aebda75-0715-4cbc-9665-6148c90b579e` at 2026-11-11 05:28:58 UTC, after the native workflow completed. An authenticated probe through the actual Tailscale HTTPS endpoint verified the manifest's RSA signature, all 24 asset hashes and the newer-than-embedded timestamp rule. Temporary probe credentials were revoked. Publication does not establish application on a physical device.
+
 ## First download after TestFlight
 
 Published runtime `zorid-2` release `701b32cf-64e9-4333-8bae-bf66a7d192ff` on 2026-11-11 after TestFlight build 16. The previous release predated the new embedded setup bundle and failed Expo's timestamp selection rule. An authenticated HTTPS probe reproduced the rejection, then accepted the fresh release and verified its RSA signature and all 24 asset hashes. The temporary probe credentials were revoked. Applying and launching this release on the physical iPhone still needs device confirmation.
