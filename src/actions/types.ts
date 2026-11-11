@@ -23,6 +23,7 @@ export type SurfacePublication = {
   widget?: string;
   activity?: string;
   props: { [key: string]: JsonValue };
+  /** Ends the activity with final content retained under iOS's default dismissal policy. */
   endActivity?: boolean;
   /** Starts an activity only when foreground execution permits it. */
   startActivity?: boolean;

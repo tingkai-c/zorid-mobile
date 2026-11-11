@@ -144,7 +144,9 @@ actor ZoridActionSurfaces {
       guard encodedState.count + (try JSONEncoder().encode(activity.attributes)).count <= 4096 else {
         throw ZoridSurfaceError.oversizedActivity
       }
-      if end { await activity.end(content, dismissalPolicy: .immediate) }
+      // Ending stops the activity while allowing its final content to remain
+      // visible on the Lock Screen until the person or iOS dismisses it.
+      if end { await activity.end(content, dismissalPolicy: .default) }
       else { await activity.update(content) }
     }
     if instances.isEmpty && start && !end {

@@ -13,15 +13,16 @@ const root = resolve(import.meta.dir, '..');
 const widgetsRoot = dirname(require.resolve('expo-widgets/package.json'));
 const bundle = resolve(root, 'build/test-layout/ExpoWidgets.bundle');
 type Modifier = { $type: string; color?: string; style?: string | { color?: string }; tint?: { color?: string }; width?: number };
-type Node = { type: string; props: { modifiers?: Modifier[]; children?: unknown; timerInterval?: unknown; label?: string; target?: string } };
+type Node = { type: string; props: { modifiers?: Modifier[]; children?: unknown; timerInterval?: unknown; label?: string; target?: string; text?: string; systemName?: string } };
 type Layout = Record<string, Node>;
-let renderer: (colorScheme: 'light' | 'dark', status?: 'running' | 'paused', isStale?: boolean) => Layout;
+type Status = 'running' | 'paused' | 'completed';
+let renderer: (colorScheme: 'light' | 'dark', status?: Status, isStale?: boolean) => Layout;
 
-function presentation(status: 'running' | 'paused') {
+function presentation(status: Status) {
   const session = startFocus('layout-session', {
     id: 'layout-task', title: 'A long task title that must remain readable in limited space', completed: false, createdAt: 1_000,
   }, 1_000);
-  return focusSessionPresentation(status === 'paused' ? changeFocus(session, 'pause', 151_000) : session, 151_000);
+  return focusSessionPresentation(status === 'running' ? session : changeFocus(session, status === 'paused' ? 'pause' : 'finish', 151_000), 151_000);
 }
 
 beforeAll(() => {
@@ -145,4 +146,37 @@ describe('rendered Focus Live Activity constraints', () => {
       expect(styledNodes(layout.banner).some(({ node }) => node.props.timerInterval !== undefined)).toBe(false);
     }
   });
+  for (const appearance of ['light', 'dark'] as const) {
+    for (const state of ['completed', 'stale'] as const) {
+      test(`${appearance}: ${state} presents completion with actual focused duration and no timer or controls`, () => {
+        const layout = renderer(appearance, state === 'stale' ? 'running' : 'completed', state === 'stale');
+        const duration = state === 'stale' ? '25 min focused' : '2 min 30 sec focused';
+        for (const [region, root] of Object.entries(layout)) {
+          const nodes = styledNodes(root);
+          expect(nodes.filter(({ node }) => node.type === 'Button'), `${region} must not offer completed-session actions`).toHaveLength(0);
+          expect(nodes.some(({ node }) => node.props.timerInterval !== undefined), `${region} must not count down`).toBe(false);
+          expect(nodes.some(({ node }) => node.props.text === '0:00'), `${region} must not look like an expired running timer`).toBe(false);
+          for (const { styles } of nodes.filter(({ node }) => node.props.text || node.props.systemName)) {
+            const foreground = color(styles.get('foregroundStyle'));
+            const background = region.startsWith('banner') ? color(modifier(root, 'activityBackgroundTint')) : '#000000';
+            expect(foreground, `${region} completion content needs a readable foreground`).toBeDefined();
+            expect(background).toBeDefined();
+            expect(contrast(foreground!, background!)).toBeGreaterThanOrEqual(4.5);
+          }
+        }
+        for (const region of ['banner', 'bannerSmall', 'expandedBottom']) {
+          const texts = styledNodes(layout[region]).map(({ node }) => node.props.text);
+          expect(texts).toContain(presentation('completed').taskTitle);
+          expect(texts).toContain(duration);
+        }
+        expect(styledNodes(layout.banner).map(({ node }) => node.props.text)).toContain('Focus complete');
+        expect(styledNodes(layout.expandedLeading).map(({ node }) => node.props.text)).toContain('Focus complete');
+        for (const region of ['banner', 'bannerSmall', 'compactLeading', 'minimal']) {
+          expect(styledNodes(layout[region]).some(({ node }) => node.props.systemName === 'checkmark.circle.fill')).toBe(true);
+        }
+        expect(layout.compactTrailing.props.text).toBe('Done');
+        expect(modifier(layout.compactTrailing, 'frame')?.width).toBe(52);
+      });
+    }
+  }
 });

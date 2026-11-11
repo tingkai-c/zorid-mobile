@@ -1,8 +1,16 @@
 # Foundation delivery evidence
 
+## Focus completion state
+
+The Live Activity now has a separate completion layout for completed records and running snapshots marked stale by iOS. It shows a checkmark, “Focus complete,” the task and focused duration. Early finishes use actual elapsed work; deadline expiry uses the remaining countdown plus already accumulated work. All completion regions omit countdowns and action buttons. The compact Island uses a bounded “Done” label.
+
+The serialized Expo layout tests were red before the change (four completion failures) and now pass all 14 cases with 474 assertions. The full JavaScript suite passes 89 tests with 831 assertions; typecheck, lint and action-bundle freshness pass. The native adapter ends with final content and iOS's default dismissal policy instead of immediate removal. A new native binary is needed for that retention behavior; the layout uses existing Expo components and the action source remains unchanged.
+
+No post-change iPhone screenshot is available. Serialized-layout checks do not establish native visual appearance or exact deadline refresh timing. The planned TestFlight build replaces canceled build 21 and includes both the Pause runtime repair and completion behavior.
+
 ## Pause action investigation
 
-The phone reported “The app action failed; no changes were saved” when pausing. This identifies a JavaScript handler exception, rather than a post-commit widget refresh failure. The exact phone-side cause remains unconfirmed: the Mac was unreachable for diagnostics, and the button's location has not been confirmed.
+The phone reported “The app action failed; no changes were saved” when pausing inside Zorid. This identifies a JavaScript handler exception, rather than a post-commit widget refresh failure. The exact phone-side cause remains unconfirmed because the Mac was unreachable for diagnostics.
 
 - [Pre-fix native reproduction](https://github.com/tingkai-c/zorid-mobile/actions/runs/43054097743): the original 73 native checks passed, then the actual compiled Focus handler rejected a fresh app-side revision with the same generic error. Raw decimal JSON passed through Foundation's number conversion produced a different JavaScript number. Nine of 4,028 synthetic timestamp cases differed. The diagnostic branch deliberately retains the previous runtime and must not be shipped.
 - [Corrected native checks](https://github.com/tingkai-c/zorid-mobile/actions/runs/43053834915): 99 action checks, the compiled Pause/Resume/Finish lifecycle, the new fresh-revision Pause regression, and all 4,028 numeric comparisons passed. Record reads now parse their original JSON in JavaScriptCore, matching JavaScript record semantics. Captured parser references prevent handler replacement of `JSON.parse` from changing record reads.

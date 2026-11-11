@@ -50,6 +50,61 @@ function FocusActivityLayout(props: FocusPresentation, environment: LiveActivity
       ]} /> : null}
     </HStack> : null;
   };
+  if (props.status === 'completed' || stale) {
+    // A stale running snapshot has already worked its remaining countdown.
+    // Finished snapshots instead carry the actual duration, including early finishes.
+    const focusedSeconds = Math.max(0, Math.floor(props.elapsedSeconds + (stale
+      ? Math.max(0, Math.ceil((props.endsAt - props.startsAt) / 1000)) : 0)));
+    const minutes = Math.floor(focusedSeconds / 60);
+    const seconds = focusedSeconds % 60;
+    const duration = minutes > 0
+      ? `${minutes} min${seconds > 0 ? ` ${seconds} sec` : ''} focused`
+      : `${seconds} sec focused`;
+    return {
+      banner: <VStack alignment="leading" spacing={10} modifiers={[
+        padding({ all: 14 }), foregroundStyle(foreground), activityBackgroundTint(background),
+      ]}>
+        <HStack alignment="center" spacing={12}>
+          <Image systemName="checkmark.circle.fill" size={32} modifiers={[foregroundStyle(accent)]} />
+          <VStack alignment="leading" spacing={4} modifiers={[
+            frame({ maxWidth: Infinity, alignment: 'leading' }), layoutPriority(1),
+          ]}>
+            <Text modifiers={[font({ textStyle: 'subheadline', weight: 'semibold' }), foregroundStyle(accent), lineLimit(1)]}>Focus complete</Text>
+            <Text modifiers={[font({ textStyle: 'subheadline', weight: 'medium' }), lineLimit(2)]}>{props.taskTitle}</Text>
+          </VStack>
+        </HStack>
+        <Text modifiers={[font({ textStyle: 'headline', design: 'rounded', weight: 'semibold' }), lineLimit(1), minimumScaleFactor(0.8)]}>{duration}</Text>
+        <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(accent), lineLimit(1)]}>Take a moment to recharge.</Text>
+      </VStack>,
+      bannerSmall: <HStack spacing={10} modifiers={[
+        padding({ all: 12 }), foregroundStyle(foreground), activityBackgroundTint(background),
+      ]}>
+        <Image systemName="checkmark.circle.fill" size={24} modifiers={[foregroundStyle(accent)]} />
+        <VStack alignment="leading" spacing={3}>
+          <Text modifiers={[font({ textStyle: 'caption', weight: 'semibold' }), foregroundStyle(accent), lineLimit(1)]}>Focus complete</Text>
+          <Text modifiers={[font({ textStyle: 'caption', weight: 'medium' }), lineLimit(1)]}>{props.taskTitle}</Text>
+          <Text modifiers={[font({ textStyle: 'caption' }), lineLimit(1)]}>{duration}</Text>
+        </VStack>
+      </HStack>,
+      compactLeading: <Image systemName="checkmark.circle.fill" size={16} modifiers={[foregroundStyle(islandAccent)]} />,
+      compactTrailing: <Text modifiers={[
+        font({ size: 13, weight: 'semibold' }), foregroundStyle(islandForeground), lineLimit(1),
+        frame({ width: 52, alignment: 'trailing' }),
+      ]}>Done</Text>,
+      minimal: <Image systemName="checkmark.circle.fill" size={16} modifiers={[foregroundStyle(islandAccent)]} />,
+      expandedLeading: <Text modifiers={[
+        font({ textStyle: 'caption', weight: 'semibold' }), foregroundStyle(islandAccent), lineLimit(1),
+      ]}>Focus complete</Text>,
+      expandedTrailing: <Image systemName="checkmark.circle.fill" size={22} modifiers={[foregroundStyle(islandAccent)]} />,
+      expandedBottom: <VStack alignment="leading" spacing={6} modifiers={[
+        foregroundStyle(islandForeground), frame({ maxWidth: Infinity, alignment: 'leading' }),
+      ]}>
+        <Text modifiers={[font({ textStyle: 'subheadline', weight: 'semibold' }), lineLimit(2)]}>{props.taskTitle}</Text>
+        <Text modifiers={[font({ textStyle: 'headline', design: 'rounded', weight: 'semibold' }), lineLimit(1)]}>{duration}</Text>
+        <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(islandAccent), lineLimit(1)]}>Take a moment to recharge.</Text>
+      </VStack>,
+    };
+  }
   return {
     banner: (
       <VStack alignment="leading" spacing={8} modifiers={[
