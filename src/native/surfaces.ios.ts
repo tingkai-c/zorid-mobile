@@ -7,6 +7,13 @@ export function getSurfaceCapability() {
   return { available, reason: available ? undefined : 'Install the Zorid native build to enable widgets and Live Activities.' };
 }
 
+/** Persist the current downloaded layouts before a cold native action needs
+ * them. Registration changes layout source, never the ordered surface data. */
+export async function registerFocusLayouts(): Promise<void> {
+  if (!getSurfaceCapability().available) throw new Error('This binary cannot render focus surfaces.');
+  await Promise.all([import('./FocusWidget'), import('./FocusActivity')]);
+}
+
 // Serialize app events: concurrent start/update/end calls must not create duplicate activities.
 let pending: Promise<unknown> = Promise.resolve();
 function serialize(action: () => Promise<SurfaceResult>): Promise<SurfaceResult> {

@@ -6,7 +6,7 @@ import { actions } from '../actions';
 import { changeFocus, type FocusSession, startFocus, type Task, workedMs } from '../domain/focus';
 import { getDatabase } from '../storage/database';
 import { saveDocument, type DocumentDatabase } from '../storage/documents';
-import { publishFocus } from '../native/surfaces';
+import { publishFocus, registerFocusLayouts } from '../native/surfaces';
 import { focusSessionPresentation, focusActionVersion } from '../native/focus-session';
 import { focusRevision } from './focus-action-handler';
 import { focusActionSource } from './focus-actions.generated';
@@ -21,6 +21,7 @@ type Workspace = Snapshot & {
 const Context = createContext<Workspace | null>(null);
 async function installActions() {
   if (!actions.available) return;
+  await registerFocusLayouts();
   await actions.install({ appId: 'productivity', version: focusActionVersion, runtimeVersion: 1,
     capabilities: ['records', 'surfaces'], handlers: { 'focus.control': focusActionSource, 'focus.publish': focusActionSource } });
 }
