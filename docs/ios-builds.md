@@ -8,8 +8,8 @@ Development, dependency installs, tests and JavaScript export run on WSL. GitHub
 
 Manually run `Build iOS`, selecting:
 
-- `simulator` (default): unsigned Release build containing the native widget extension, packaged as `Zorid-simulator.zip`. It cannot install on a physical iPhone. The workflow then boots an available iPhone simulator, installs the app, verifies that launch returns a PID and that the process survives ten seconds, and captures a screenshot. Build logs, the Xcode result bundle, screenshot and smoke result are separate diagnostic artifacts. Shutdown runs even if installation/launch fails. A successful smoke result does not assert app behavior; inspect the screenshot and perform device acceptance separately.
-- `device`: signed registered-device Release archive exported as `Zorid.ipa`. Install on a phone included in both provisioning profiles. IPA, checksum and commit/run metadata form the downloadable artifact.
+- `simulator` (default): unsigned Release build containing the widget, Device Activity Monitor and two shield extensions, packaged as `Zorid-simulator.zip`. It cannot install on a physical iPhone. The workflow then boots an available iPhone simulator, installs the app, verifies that launch returns a PID and that the process survives ten seconds, and captures a screenshot. Build logs, the Xcode result bundle, screenshot and smoke result are separate diagnostic artifacts. Shutdown runs even if installation/launch fails. A successful smoke result does not assert app behavior; inspect the screenshot and perform device acceptance separately.
+- `device`: signed registered-device Release archive exported as `Zorid.ipa`. Install on a phone included in all five provisioning profiles. IPA, checksum and commit/run metadata form the downloadable artifact.
 - `testflight`: signed Release archive uploaded to App Store Connect for internal TestFlight testing. The Actions artifact is an upload receipt with the commit, run and build number. Install the processed build from TestFlight on the iPhone.
 
 ```sh
@@ -62,10 +62,12 @@ Set these repository Actions secrets from trusted credential automation; never c
 | `IOS_CERTIFICATE_P12_BASE64` | Base64 PKCS#12 with Apple Distribution certificate and private key |
 | `IOS_CERTIFICATE_PASSWORD` | PKCS#12 password |
 | `IOS_TEAM_ID` | Paid Apple Developer team |
-| `IOS_PROFILES_ZIP_BASE64` | Base64 ZIP of app and widget ad-hoc provisioning profiles |
-| `IOS_APP_STORE_PROFILES_ZIP_BASE64` | Base64 ZIP of app and widget App Store Connect provisioning profiles for TestFlight |
+| `IOS_PROFILES_ZIP_BASE64` | Base64 ZIP of app, widget, focus monitor and two shield ad-hoc provisioning profiles |
+| `IOS_APP_STORE_PROFILES_ZIP_BASE64` | Base64 ZIP of app, widget, focus monitor and two shield App Store Connect provisioning profiles for TestFlight |
 
-Expected bundle IDs are `app.zorid.mobile` and `app.zorid.mobile.widgets`, sharing `group.app.zorid.mobile`. Profiles must authorize the App Group, exact bundle IDs, certificate and registered devices. A wildcard development profile is insufficient. Adding a phone requires regenerating profiles and rebuilding.
+Expected bundle IDs are `app.zorid.mobile`, `app.zorid.mobile.widgets` and `app.zorid.mobile.focus-monitor`, `app.zorid.mobile.shield-configuration` and `app.zorid.mobile.shield-action`, sharing `group.app.zorid.mobile`. Each target needs its own profile authorizing Family Controls distribution, the App Group, its exact bundle ID and the signing certificate. Registered-device profiles must also include the intended phone. A wildcard development profile is insufficient. Adding a phone requires regenerating registered-device profiles and rebuilding.
+
+Family Controls distribution access must be approved before compatible profiles can be generated for TestFlight. The entitlement request was submitted with the account holder's consent. The subsequent Developer Portal configuration shows Family Controls (Distribution) as Assigned and enabled on all five identifiers; regenerated profile contents must still be verified. Run `gh workflow run screen-time-access.yml` to inspect the existing TestFlight profile ZIP on the runner; its downloadable receipt contains only capability and validity flags. The existing app/widget profiles lack Family Controls, and the monitor profile is missing, so the complete five-target archive must replace them before signing. See [Screen Time delivery and device limitations](screen-time.md#signing-and-delivery).
 
 Profiles are installed under `~/Library/Developer/Xcode/UserData/Provisioning Profiles`, the Xcode 16+ location used by [Fastlane](https://github.com/fastlane/fastlane/blob/master/fastlane_core/lib/fastlane_core/provisioning_profile.rb). Cleanup removes the exact installed paths. The script rejects expired, wildcard, development and wrong-team profiles, then assigns each target its own profile by bundle ID. After certificate import, it requires exactly one valid identity in the isolated keychain and privately pins manual target signing and IPA export to that certificate SHA-1 fingerprint. This supports both legacy iPhone Distribution and Apple Distribution certificate names without printing their names or fingerprints. Xcode validates remaining entitlement/certificate compatibility. Profiles must remain valid at installation and use.
 
@@ -75,7 +77,7 @@ Secrets are decoded in a restricted runner temporary directory and imported into
 
 ## Internal TestFlight
 
-Create the `app.zorid.mobile` app record in App Store Connect and add the intended account to an internal TestFlight group. Enable automatic distribution to deliver future builds to that group after Apple processes them. The app and widget need App Store Connect profiles signed by the same distribution identity and authorized for the shared App Group. The runner uses `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID` and `ASC_API_ISSUER_ID` for upload. A new workflow dispatch allocates a new build number.
+Create the `app.zorid.mobile` app record in App Store Connect and add the intended account to an internal TestFlight group. Enable automatic distribution to deliver future builds to that group after Apple processes them. The app, widget, focus monitor and both shield extensions need App Store Connect profiles signed by the same distribution identity and authorized for Family Controls and the shared App Group. The runner uses `ASC_API_KEY_P8_BASE64`, `ASC_API_KEY_ID` and `ASC_API_ISSUER_ID` for upload. A new workflow dispatch allocates a new build number.
 
 On the iPhone, open the TestFlight invitation with the invited Apple Account, then install Zorid from TestFlight. Beta builds expire after 90 days. Use the paired host for JavaScript releases and dispatch a new TestFlight build for native changes. See [Apple's internal testing setup](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/).
 

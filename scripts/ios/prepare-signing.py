@@ -18,7 +18,7 @@ profiles = {}
 profiles_secret = 'IOS_APP_STORE_PROFILES_ZIP_BASE64' if testflight else 'IOS_PROFILES_ZIP_BASE64'
 encoded_profiles = os.environ.get(profiles_secret)
 if testflight and not encoded_profiles:
-    raise ValueError('TestFlight requires App Store Connect profiles for the app, widget and focus monitor extensions')
+    raise ValueError('TestFlight requires App Store Connect profiles for all five Zorid targets')
 if testflight or not encoded_profiles:
     for key in ('ASC_API_KEY_P8_BASE64', 'ASC_API_KEY_ID', 'ASC_API_ISSUER_ID'):
         if not os.environ.get(key):
@@ -74,8 +74,9 @@ if encoded_profiles:
 else:
     options = {'method': 'release-testing', 'signingStyle': 'automatic', 'teamID': team}
 if testflight:
-    if set(profiles) != {'app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor'}:
-        raise ValueError('TestFlight requires exactly the Zorid app, widget and focus monitor extension profiles')
+    if set(profiles) != {'app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor',
+                         'app.zorid.mobile.shield-configuration', 'app.zorid.mobile.shield-action'}:
+        raise ValueError('TestFlight requires exactly the five Zorid app and extension profiles')
     options.update(destination='upload', testFlightInternalTestingOnly=True, manageAppVersionAndBuildNumber=False)
 (root / 'ExportOptions.plist').write_bytes(plistlib.dumps(options))
 (root / 'profiles.json').write_text(json.dumps({'team': team, 'profiles': profiles}))

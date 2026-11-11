@@ -42,6 +42,16 @@ export function FocusProtection() {
   }
   async function setEnabled(enabled: boolean) {
     if (enabled) {
+      const current = await screenTime.status(appId);
+      const selectedPolicy = current.policies.find(item => item.id === policyId);
+      if (screenTime.shieldAvailable && !selectedPolicy?.customShield) await screenTime.configureShield(appId, policyId, {
+        title: { text: 'Focus in progress', color: '#203D38' },
+        subtitle: { text: 'Give this task your attention. Pause or finish your session in Zorid to use this app.', color: '#65756F' },
+        icon: { systemName: 'timer' }, backgroundColor: '#F7F6F2', primaryButtonBackgroundColor: '#176B58',
+        primaryButtonLabel: { text: 'Return to focus', color: '#FFFFFF' },
+        ...(current.shieldCapabilities?.openApp ? { secondaryButtonLabel: { text: 'Open Zorid', color: '#176B58' } } : {}),
+        actions: { primary: 'close', ...(current.shieldCapabilities?.openApp ? { secondary: 'openApp' as const } : {}) },
+      });
       if (!await setFocusPolicy(policyId)) throw new Error('The app blocking preference could not be saved.');
       return;
     }

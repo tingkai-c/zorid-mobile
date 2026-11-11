@@ -42,8 +42,10 @@ jobs:
         run: |
           swiftc modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/tests/test-plan.swift -o "$RUNNER_TEMP/zorid-screen-time-checks"
           "$RUNNER_TEMP/zorid-screen-time-checks"
+          swiftc modules/zorid-screen-time/ios/ZoridScreenTimeShield.swift modules/zorid-screen-time/tests/test-shield.swift -o "$RUNNER_TEMP/zorid-shield-checks"
+          "$RUNNER_TEMP/zorid-shield-checks"
           sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
-          swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/ios/ZoridScreenTimeController.swift native/screen-time/ZoridFocusMonitor.swift
+          swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/ios/ZoridScreenTimeShield.swift modules/zorid-screen-time/ios/ZoridScreenTimeController.swift native/screen-time/*.swift
       - name: Compare native record decoding with JavaScript JSON parsing
         if: always()
         run: |

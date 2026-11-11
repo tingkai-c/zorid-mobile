@@ -2,10 +2,13 @@ const { withDangerousMod, withEntitlementsPlist, withXcodeProject } = require('@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const plist = require('@expo/plist').default;
-const targetName = 'ZoridFocusMonitor';
-const bundleIdentifier = 'app.zorid.mobile.focus-monitor';
 const groupIdentifier = 'group.app.zorid.mobile';
-const coreSources = ['ZoridScreenTimePlan.swift', 'ZoridScreenTimeController.swift'];
+const coreSources = ['ZoridScreenTimePlan.swift', 'ZoridScreenTimeController.swift', 'ZoridScreenTimeShield.swift'];
+const extensions = [
+  { name: 'ZoridFocusMonitor', bundle: 'app.zorid.mobile.focus-monitor', point: 'com.apple.deviceactivity.monitor-extension', display: 'Zorid Focus Monitor' },
+  { name: 'ZoridShieldConfiguration', bundle: 'app.zorid.mobile.shield-configuration', point: 'com.apple.ManagedSettingsUI.shield-configuration-service', display: 'Zorid Focus Shield' },
+  { name: 'ZoridShieldAction', bundle: 'app.zorid.mobile.shield-action', point: 'com.apple.ManagedSettings.shield-action-service', display: 'Zorid Focus Shield Actions' },
+];
 
 function entitlements(original = {}) {
   return { ...original, 'com.apple.developer.family-controls': true,
@@ -13,19 +16,45 @@ function entitlements(original = {}) {
 }
 
 function configureProject(project, config) {
+  for (const extension of extensions) configureExtension(project, config, extension);
+  return project;
+}
+
+function configureExtension(project, config, { name: targetName, bundle: bundleIdentifier }) {
   let target = project.pbxTargetByName(targetName) ?? project.pbxTargetByName(`"${targetName}"`);
-  let uuid;
+  let uuid = Object.entries(project.pbxNativeTargetSection()).find(([, value]) => value === target)?.[0];
   if (!target) {
     const created = project.addTarget(targetName, 'app_extension', targetName, bundleIdentifier);
     target = created.pbxNativeTarget;
     uuid = created.uuid;
-    project.addBuildPhase([...coreSources, 'ZoridFocusMonitor.swift'],
-      'PBXSourcesBuildPhase', 'Sources', uuid);
     project.addBuildPhase([], 'PBXFrameworksBuildPhase', 'Frameworks', uuid);
     project.addBuildPhase([], 'PBXResourcesBuildPhase', 'Resources', uuid);
-    const group = project.addPbxGroup(['Info.plist', `${targetName}.entitlements`, ...coreSources, 'ZoridFocusMonitor.swift'], targetName, targetName);
-    project.addToPbxGroup(group.uuid, project.getFirstProject().firstProject.mainGroup);
   }
+  // Project-relative paths keep the shared source filenames distinct across
+  // targets. A group with no directory path also upgrades earlier prebuilds.
+  const sourcePaths = [...coreSources, `${targetName}.swift`].map(file => `${targetName}/${file}`);
+  const phases = project.hash.project.objects.PBXSourcesBuildPhase ?? {};
+  const sourcePhase = target.buildPhases.find(phase => phase.comment === 'Sources');
+  const currentPaths = sourcePhase ? phases[sourcePhase.value].files.map(file =>
+    project.pbxFileReferenceSection()[project.pbxBuildFileSection()[file.value].fileRef].path.replaceAll('"', '')) : [];
+  if (JSON.stringify(currentPaths) !== JSON.stringify(sourcePaths)) {
+    target.buildPhases = target.buildPhases.filter(phase => phase.comment !== 'Sources');
+    project.addBuildPhase(sourcePaths, 'PBXSourcesBuildPhase', 'Sources', uuid);
+  }
+  const groups = project.hash.project.objects.PBXGroup;
+  let group = Object.values(groups).find(value => value && typeof value === 'object' && value.name === targetName);
+  if (!group) {
+    const created = project.addPbxGroup([], targetName);
+    group = created.pbxGroup;
+    project.addToPbxGroup(created.uuid, project.getFirstProject().firstProject.mainGroup);
+  }
+  delete group.path;
+  const files = [`${targetName}/Info.plist`, `${targetName}/${targetName}.entitlements`, ...sourcePaths];
+  // addPbxGroup reuses file references already created by addBuildPhase.
+  const temporary = project.addPbxGroup(files, `${targetName}Files`);
+  group.children = temporary.pbxGroup.children;
+  delete groups[temporary.uuid];
+  delete groups[`${temporary.uuid}_comment`];
   const list = project.pbxXCConfigurationList()[target.buildConfigurationList];
   for (const item of list.buildConfigurations) {
     const settings = project.pbxXCBuildConfigurationSection()[item.value].buildSettings;
@@ -45,23 +74,26 @@ function configureProject(project, config) {
       ...(config.ios?.appleTeamId ? { DEVELOPMENT_TEAM: config.ios.appleTeamId } : {}),
     });
   }
-  return project;
 }
 
 async function generateSources(projectRoot, platformRoot) {
+  for (const extension of extensions) await generateExtension(projectRoot, platformRoot, extension);
+}
+
+async function generateExtension(projectRoot, platformRoot, { name: targetName, display, point }) {
   const targetRoot = path.join(platformRoot, targetName);
   await fs.mkdir(targetRoot, { recursive: true });
   for (const source of coreSources) {
     await fs.copyFile(path.join(projectRoot, 'modules/zorid-screen-time/ios', source), path.join(targetRoot, source));
   }
-  await fs.copyFile(path.join(projectRoot, 'native/screen-time/ZoridFocusMonitor.swift'), path.join(targetRoot, 'ZoridFocusMonitor.swift'));
+  await fs.copyFile(path.join(projectRoot, `native/screen-time/${targetName}.swift`), path.join(targetRoot, `${targetName}.swift`));
   await fs.writeFile(path.join(targetRoot, `${targetName}.entitlements`), plist.build(entitlements()));
   await fs.writeFile(path.join(targetRoot, 'Info.plist'), plist.build({
-    CFBundleDisplayName: 'Zorid Focus Monitor', CFBundleExecutable: '$(EXECUTABLE_NAME)',
+    CFBundleDisplayName: display, CFBundleExecutable: '$(EXECUTABLE_NAME)',
     CFBundleIdentifier: '$(PRODUCT_BUNDLE_IDENTIFIER)', CFBundleName: '$(PRODUCT_NAME)',
     CFBundlePackageType: 'XPC!', CFBundleShortVersionString: '$(MARKETING_VERSION)', CFBundleVersion: '$(CURRENT_PROJECT_VERSION)',
-    NSExtension: { NSExtensionPointIdentifier: 'com.apple.deviceactivity.monitor-extension',
-      NSExtensionPrincipalClass: '$(PRODUCT_MODULE_NAME).ZoridFocusMonitor' },
+    NSExtension: { NSExtensionPointIdentifier: point,
+      NSExtensionPrincipalClass: `$(PRODUCT_MODULE_NAME).${targetName}` },
   }));
 }
 
@@ -97,3 +129,4 @@ module.exports.entitlements = entitlements;
 module.exports.configureProject = configureProject;
 module.exports.generateSources = generateSources;
 module.exports.patchWidgetEntitlements = patchWidgetEntitlements;
+module.exports.extensions = extensions;

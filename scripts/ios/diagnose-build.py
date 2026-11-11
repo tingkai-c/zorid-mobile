@@ -10,7 +10,7 @@ from pathlib import Path
 
 RULES = [
     (r'no accounts|add.*account|account.*not.*found|requires.*developer account', 'Xcode cannot find an authorized developer account. Check the team API key and Developer Resources access.'),
-    (r'failed to register bundle|identifier.*not available|identifier.*cannot be registered', 'App identifier registration failed. Check ownership and capabilities for both target bundle IDs.'),
+    (r'failed to register bundle|identifier.*not available|identifier.*cannot be registered', 'App identifier registration failed. Check ownership and capabilities for each app and extension bundle ID.'),
     (r'certificate.*limit|maximum.*certificates|revoke.*certificate', 'The team development certificate limit may be reached. Reuse a valid development identity; do not revoke unrelated certificates.'),
     (r'app.?groups?|com\.apple\.security\.application-groups', 'App Group entitlement/registration failed. Check both app identifiers and their shared group.'),
     (r'no profiles|requires a provisioning profile|couldn.t find.*profile', 'A required provisioning profile is missing. Check each app/extension bundle ID.'),

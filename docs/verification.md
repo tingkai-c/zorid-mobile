@@ -1,5 +1,21 @@
 # Foundation delivery evidence
 
+## Screen Time focus protection
+
+Implementation `ffc2729` adds device-local blocklist/allowlist selection, the `ZoridScreenTime` native bridge, and the Device Activity Monitor extension for runtime `zorid-4`. Directly deployed JavaScript can use the installed bridge; the Focus action bundle queues protection changes with its record transaction. Start, pause, resume and finish use the native action path. Emergency release can invalidate a selected policy when persisting the newer clear fails, preventing a pending activation from restoring that policy.
+
+The JavaScript suite passed 115 tests with 953 assertions. Typecheck, lint, action-bundle freshness, iOS JavaScript export and Expo prebuild passed. The [native checks](https://github.com/tingkai-c/zorid-mobile/actions/runs/43069626573) passed 117 action checks, the compiled Focus lifecycle, 11 surface-effect queue regressions, 35 Screen Time interval/identifier checks and typechecking against the actual iOS Screen Time frameworks. Fixture correction `8ee5b25` replaces an ambiguous heterogeneous Swift ternary in the queue test; the earlier failed fixture run is not delivery evidence.
+
+The [runner-only signing check](https://github.com/tingkai-c/zorid-mobile/actions/runs/43068058169) found that the existing app and widget profiles lack Family Controls and that no focus monitor profile is present. With the user's explicit consent, the Family Controls distribution request was submitted through Apple's signed-in portal. Apple acknowledged submission and stated that it will review the request and send a status update. The request receipt alone did not establish approval. Subsequent saved Developer Portal settings show Family Controls (Distribution) Assigned and enabled on all five participating identifiers. Regenerated profile contents still require verification before signing.
+
+[Simulator build 24](https://github.com/tingkai-c/zorid-mobile/actions/runs/43069627043) compiled the original bridge and monitor successfully; its install/launch smoke test is still running. This build predates the two shield extensions, so it does not verify their native compilation. No runtime `zorid-4` signed binary or JavaScript release has been delivered. TestFlight build 22 and the runtime `zorid-3` release described below remain the latest shipped versions.
+
+The custom-shield implementation maps all nine public Apple appearance fields, native response enums and version-gated secondary menu actions to deployed configuration. The configuration datasource reads prepared state under a nonblocking shared lock without changing restrictions. PNG transport is bounded to 128 KiB and 1024 pixels per side; total configuration is bounded to 256 KiB. These are transport limits, not Apple layout customization APIs. SF Symbols, all 20 iPhone blur styles, alpha and dynamic light/dark colors are supported. `getShield` reads nonsensitive saved styling; opaque application tokens remain native.
+
+Fresh local verification for the shield extension work passed 126 Bun tests with 1,090 assertions, typecheck, lint, action-bundle freshness, iOS JavaScript export and actual five-target prebuild. All 12 generated extension source references resolve. Eleven synthetic profile checks and two build/signing tests pass. Swift compilation of the new shield sources and physical rendering are not established by these local checks.
+
+Physical-device acceptance remains for individual authorization, picker appearance, actual app shielding, pause/resume/finish release, authorization revocation and background expiry. In particular, backdating a short remaining monitoring interval to satisfy Apple's 15-minute minimum needs device validation. Compilation and interval-planning checks do not establish enforcement or exact callback timing. See [Screen Time behavior and limitations](screen-time.md).
+
 ## Focus completion state
 
 The Live Activity now has a separate completion layout for completed records and running snapshots marked stale by iOS. It shows a checkmark, “Focus complete,” the task and focused duration. Early finishes use actual elapsed work; deadline expiry uses the remaining countdown plus already accumulated work. All completion regions omit countdowns and action buttons. The compact Island uses a bounded “Done” label.

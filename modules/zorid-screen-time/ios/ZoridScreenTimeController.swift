@@ -4,11 +4,26 @@ import Darwin
 import FamilyControls
 import ManagedSettings
 import DeviceActivity
+import ImageIO
 
 private struct ZoridScreenTimePolicy: Codable {
   let id: String
   let mode: String
   let selection: FamilyActivitySelection
+  var shield: ZoridShieldDocument?
+  private enum Keys: String, CodingKey { case id, mode, selection, shield }
+  init(id: String, mode: String, selection: FamilyActivitySelection, shield: ZoridShieldDocument? = nil) {
+    self.id = id; self.mode = mode; self.selection = selection; self.shield = shield
+  }
+  init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: Keys.self)
+    id = try values.decode(String.self, forKey: .id)
+    mode = try values.decode(String.self, forKey: .mode)
+    selection = try values.decode(FamilyActivitySelection.self, forKey: .selection)
+    // Invalid optional presentation data falls back to the system-like shield;
+    // it must never corrupt an otherwise valid blocking selection/session.
+    shield = try? values.decode(ZoridShieldDocument.self, forKey: .shield)
+  }
 }
 private struct ZoridScreenTimeActive: Codable {
   let policyId: String
@@ -65,9 +80,10 @@ public final class ZoridScreenTimeController {
       }
       let policies: [[String: Any]] = state.policies.map {
         ["id": $0.id, "mode": $0.mode, "applicationCount": $0.selection.applicationTokens.count,
-         "categoryCount": $0.selection.categoryTokens.count]
+         "categoryCount": $0.selection.categoryTokens.count, "customShield": $0.shield != nil]
       }
-      var result: [String: Any] = ["available": true, "authorization": auth, "policies": policies, "active": NSNull()]
+      var result: [String: Any] = ["available": true, "authorization": auth, "policies": policies, "active": NSNull(),
+        "shieldCapabilities": ["openApp": supportsOpenApp, "secondarySubmenu": supportsSecondarySubmenu]]
       if let active = state.active {
         result["active"] = ["policyId": active.policyId, "sessionId": active.sessionId, "endsAt": active.endsAt]
       }
@@ -95,10 +111,95 @@ public final class ZoridScreenTimeController {
       guard state.policies.count < 16 || state.policies.contains(where: { $0.id == policyId }) else {
         throw ZoridScreenTimeError.tooManyPolicies
       }
+      let existingShield = state.policies.first(where: { $0.id == policyId })?.shield
       state.policies.removeAll { $0.id == policyId }
-      state.policies.append(ZoridScreenTimePolicy(id: policyId, mode: mode, selection: selection))
+      state.policies.append(ZoridScreenTimePolicy(id: policyId, mode: mode, selection: selection, shield: existingShield))
       try save(state, to: file)
     }
+  }
+
+  public var supportsOpenApp: Bool {
+    if #available(iOS 26.5, *) { return true }
+    return false
+  }
+
+  public var supportsSecondarySubmenu: Bool {
+    if #available(iOS 26.4, *) { return true }
+    return false
+  }
+
+  // Inspect compressed PNG metadata before asking UIKit to allocate a bitmap.
+  // The same guard runs on configuration and rendering of persisted documents.
+  public static func validateShieldImage(_ style: ZoridShieldStyle) throws {
+    guard case .png(let data)? = style.icon else { return }
+    let options = [kCGImageSourceShouldCache: false] as CFDictionary
+    guard let source = CGImageSourceCreateWithData(data as CFData, options),
+          CGImageSourceGetType(source) as String? == "public.png",
+          CGImageSourceGetCount(source) == 1,
+          let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, options) as? [CFString: Any],
+          let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+          let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+          width.intValue > 0, width.intValue <= 1024, height.intValue > 0, height.intValue <= 1024 else {
+      throw ZoridShieldError.invalidImage
+    }
+  }
+
+  public func configureShield(appId: String, policyId: String, configJSON: String?) throws {
+    try ZoridScreenTimePlan.identifier(policyId)
+    let config = try configJSON.map(ZoridShieldStyle.parse)
+    if let config {
+      if config.needsOpenApp, !supportsOpenApp { throw ZoridShieldError.unsupportedOpenApp }
+      if config.secondaryButtonSubmenuItems != nil, !supportsSecondarySubmenu { throw ZoridShieldError.unsupportedSubmenu }
+      try Self.validateShieldImage(config)
+    }
+    try withState(appId) { state, file in
+      guard let index = state.policies.firstIndex(where: { $0.id == policyId }) else { throw ZoridScreenTimeError.policyMissing }
+      state.policies[index].shield = config.map(ZoridShieldDocument.init)
+      try save(state, to: file)
+    }
+  }
+
+  // Only public presentation data crosses this boundary; the selection remains
+  // opaque in the app group. A missing style means native system defaults.
+  public func getShield(appId: String, policyId: String) throws -> String? {
+    try ZoridScreenTimePlan.identifier(policyId)
+    return try withState(appId) { state, _ in
+      guard let policy = state.policies.first(where: { $0.id == policyId }) else { throw ZoridScreenTimeError.policyMissing }
+      guard let style = policy.shield?.style else { return nil }
+      return String(decoding: try JSONEncoder().encode(style), as: UTF8.self)
+    }
+  }
+
+  // The system does not identify which ManagedSettingsStore caused a shield.
+  // Choose the first matching active tool in stable app-ID order. No app names,
+  // bundle IDs or opaque tokens are returned to JavaScript or persisted here.
+  public func shieldStyle(application: ApplicationToken? = nil, category: ActivityCategoryToken? = nil) -> ZoridShieldStyle {
+    guard application != nil || category != nil,
+          let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.group) else {
+      return .fallback
+    }
+    let directory = root.appendingPathComponent("ScreenTime", isDirectory: true)
+    // ShieldConfigurationDataSource has a restricted sandbox and must respond
+    // promptly. Read an existing snapshot only; never create files, update stores,
+    // clear expired sessions, or move provided app/category metadata out of it.
+    let descriptor = open(directory.appendingPathComponent("controls.lock").path, O_RDONLY | O_CLOEXEC)
+    guard descriptor >= 0 else { return .fallback }
+    defer { close(descriptor) }
+    guard flock(descriptor, LOCK_SH | LOCK_NB) == 0 else { return .fallback }
+    defer { flock(descriptor, LOCK_UN) }
+    guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return .fallback }
+    let now = Date().timeIntervalSince1970 * 1000
+    for file in files.filter({ $0.pathExtension == "json" }).sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+      guard (try? ZoridScreenTimePlan.identifier(file.deletingPathExtension().lastPathComponent)) != nil,
+            let data = try? Data(contentsOf: file),
+            let state = try? JSONDecoder().decode(ZoridScreenTimeState.self, from: data),
+            let active = state.active, active.endsAt > now,
+            let policy = state.policies.first(where: { $0.id == active.policyId }) else { continue }
+      guard ZoridShieldMatch.matches(mode: policy.mode, application: application, category: category,
+        applications: policy.selection.applicationTokens, categories: policy.selection.categoryTokens) else { continue }
+      return policy.shield?.style ?? .fallback
+    }
+    return .fallback
   }
 
   public func deletePolicy(appId: String, policyId: String) throws {

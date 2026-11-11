@@ -76,11 +76,15 @@ class ArchiveSigningTests(unittest.TestCase):
 
 class TestFlightProfileTests(unittest.TestCase):
     @staticmethod
-    def encoded_profiles(*, devices=False, widget=True, monitor=True, family=True):
+    def encoded_profiles(*, devices=False, widget=True, monitor=True, family=True, shield_config=True, shield_action=True):
         buffer = io.BytesIO()
         bundles = ('app.zorid.mobile', 'app.zorid.mobile.widgets') if widget else ('app.zorid.mobile',)
         if monitor:
             bundles += ('app.zorid.mobile.focus-monitor',)
+        if shield_config:
+            bundles += ('app.zorid.mobile.shield-configuration',)
+        if shield_action:
+            bundles += ('app.zorid.mobile.shield-action',)
         with zipfile.ZipFile(buffer, 'w') as archive:
             for index, bundle in enumerate(bundles):
                 profile = {
@@ -104,10 +108,12 @@ class TestFlightProfileTests(unittest.TestCase):
         cases = (
             ('accepted', self.encoded_profiles(), None),
             ('ad hoc', self.encoded_profiles(devices=True), 'requires App Store Connect distribution profiles'),
-            ('missing widget', self.encoded_profiles(widget=False), 'requires exactly the Zorid app, widget and focus monitor'),
-            ('missing monitor', self.encoded_profiles(monitor=False), 'requires exactly the Zorid app, widget and focus monitor'),
+            ('missing widget', self.encoded_profiles(widget=False), 'requires exactly the five Zorid'),
+            ('missing monitor', self.encoded_profiles(monitor=False), 'requires exactly the five Zorid'),
+            ('missing shield config', self.encoded_profiles(shield_config=False), 'requires exactly the five Zorid'),
+            ('missing shield action', self.encoded_profiles(shield_action=False), 'requires exactly the five Zorid'),
             ('missing entitlement', self.encoded_profiles(family=False), 'requires approved Family Controls'),
-            ('missing secret', '', 'requires App Store Connect profiles for the app, widget and focus monitor'),
+            ('missing secret', '', 'requires App Store Connect profiles for all five Zorid'),
         )
         for description, profiles, error in cases:
             with self.subTest(description=description), tempfile.TemporaryDirectory() as directory:
@@ -143,7 +149,8 @@ class TestFlightProfileTests(unittest.TestCase):
                 self.assertEqual(options['destination'], 'upload')
                 self.assertTrue(options['testFlightInternalTestingOnly'])
                 self.assertFalse(options['manageAppVersionAndBuildNumber'])
-                self.assertEqual(set(options['provisioningProfiles']), {'app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor'})
+                self.assertEqual(set(options['provisioningProfiles']), {'app.zorid.mobile', 'app.zorid.mobile.widgets',
+                    'app.zorid.mobile.focus-monitor', 'app.zorid.mobile.shield-configuration', 'app.zorid.mobile.shield-action'})
                 self.assertEqual(json.loads((signing / 'api.json').read_text())['keyId'], 'TESTKEY')
 
 

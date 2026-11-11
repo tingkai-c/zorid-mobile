@@ -54,7 +54,7 @@ def inspect(encoded):
 
 
 class ProfileReportingTests(unittest.TestCase):
-    def test_ready_requires_all_three_entitled_distribution_profiles(self):
+    def test_ready_requires_all_five_entitled_distribution_profiles(self):
         receipt = inspect(archive(*(profile(bundle) for bundle in MODULE.BUNDLES)))
         self.assertTrue(receipt['ready'])
         self.assertEqual(receipt['checkState'], 'CHECKED')
@@ -66,6 +66,13 @@ class ProfileReportingTests(unittest.TestCase):
         self.assertNotIn('PRIVATE-FIXTURE', serialized)
         self.assertNotIn('ExpirationDate', serialized)
         self.assertNotIn('Entitlements', serialized)
+
+    def test_either_missing_shield_profile_prevents_readiness(self):
+        for missing in MODULE.BUNDLES[-2:]:
+            with self.subTest(missing=missing):
+                receipt = inspect(archive(*(profile(bundle) for bundle in MODULE.BUNDLES if bundle != missing)))
+                self.assertFalse(receipt['ready'])
+                self.assertFalse(receipt['profiles'][missing]['present'])
 
     def test_current_two_target_archive_stays_unready_without_exposing_metadata(self):
         first = profile(MODULE.BUNDLES[0])

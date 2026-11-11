@@ -55,6 +55,12 @@ public final class ZoridScreenTimeModule: Module {
     AsyncFunction("editPolicy") { (appId: String, policyId: String, mode: String, promise: Promise) in
       self.presentPicker(appId: appId, policyId: policyId, mode: mode, promise: promise)
     }.runOnQueue(.main)
+    AsyncFunction("configureShield") { (appId: String, policyId: String, configJSON: String?) in
+      try ZoridScreenTimeController.shared.configureShield(appId: appId, policyId: policyId, configJSON: configJSON)
+    }
+    AsyncFunction("getShield") { (appId: String, policyId: String) -> String? in
+      try ZoridScreenTimeController.shared.getShield(appId: appId, policyId: policyId)
+    }
     AsyncFunction("deletePolicy") { (appId: String, policyId: String) in
       try ZoridScreenTimeController.shared.deletePolicy(appId: appId, policyId: policyId)
     }

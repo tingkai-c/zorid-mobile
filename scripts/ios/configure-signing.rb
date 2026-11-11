@@ -3,7 +3,9 @@ require 'xcodeproj'
 settings = JSON.parse(File.read(File.join(ENV.fetch('RUNNER_TEMP'), 'zorid-signing', 'profiles.json')))
 project = Xcodeproj::Project.open(Dir['ios/*.xcodeproj'].fetch(0))
 signable = project.targets.select { |target| ['com.apple.product-type.application', 'com.apple.product-type.app-extension'].include?(target.product_type) }
-raise 'Expected app and widget extension targets' if signable.length < 2
+expected_bundles = %w[app.zorid.mobile app.zorid.mobile.widgets app.zorid.mobile.focus-monitor app.zorid.mobile.shield-configuration app.zorid.mobile.shield-action]
+actual_bundles = signable.map { |target| target.build_configurations.first.build_settings.fetch('PRODUCT_BUNDLE_IDENTIFIER') }
+raise 'Expected all five Zorid app and extension targets' unless actual_bundles.sort == expected_bundles.sort
 signable.each do |target|
   target.build_configurations.each do |config|
     bundle = config.build_settings.fetch('PRODUCT_BUNDLE_IDENTIFIER')

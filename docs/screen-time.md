@@ -30,6 +30,67 @@ await screenTime.clear(appId);
 
 `editPolicy` saves only after the person confirms; cancel retains the saved selection. Editing a currently applied policy is rejected. `status` reports authorization, policy counts and the native active session. A missing bridge reports unavailability rather than simulating enforcement. Direct commands require app/policy/session identifiers of at most 64 characters and positive integer deadlines no more than 24 hours ahead.
 
+### Custom blocking screen
+
+Deployed JavaScript can configure every public iOS `ShieldConfiguration` field exposed by the installed renderer. The configuration stays in the shared native container and contains no application tokens. Check `screenTime.shieldAvailable` before configuring appearance on a binary that predates this bridge method.
+
+```ts
+const current = await screenTime.status(appId);
+await screenTime.configureShield(appId, 'focus', {
+  backgroundBlurStyle: 'systemMaterial',
+  backgroundColor: { light: '#F7F6F2EE', dark: '#172320EE' },
+  icon: { systemName: 'timer' },
+  title: { text: 'Focus in progress', color: { light: '#203D38', dark: '#EBF3ED' } },
+  subtitle: { text: 'Pause or finish your session in Zorid to use this app.', color: '#65756F' },
+  primaryButtonLabel: { text: 'Return to focus', color: '#FFFFFF' },
+  primaryButtonBackgroundColor: '#176B58',
+  ...(current.shieldCapabilities?.openApp
+    ? { secondaryButtonLabel: { text: 'Open Zorid', color: '#176B58' } }
+    : {}),
+  actions: { primary: 'close', ...(current.shieldCapabilities?.openApp ? { secondary: 'openApp' as const } : {}) },
+});
+// Restore the installed default appearance for this policy:
+await screenTime.configureShield(appId, 'focus', null);
+```
+
+`await screenTime.getShield(appId, 'focus')` loads the current public configuration for an editor, or `null` when the existing policy uses the installed default. A missing policy fails explicitly. `status.policies[].customShield` reports whether a custom configuration is present. These reads expose no application tokens.
+
+The nine Apple configuration fields are independent, optional, and nullable. Omission or `null` passes no value for that native field; `{}` accepts Apple's native defaults. Labels are `{ text, color }`; empty strings, whitespace and newlines are preserved without per-field character limits.
+
+| Field | Accepted value |
+| --- | --- |
+| `backgroundBlurStyle` | Any of the 20 iOS blur styles exported as `screenTimeBlurStyles`. |
+| `backgroundColor` | Hex RGB/RGBA, or a dynamic light/dark color. |
+| `icon` | `{ systemName: 'timer' }` or `{ pngBase64: '…' }`. |
+| `title`, `subtitle` | `{ text: string, color }`. |
+| `primaryButtonLabel`, `secondaryButtonLabel` | `{ text: string, color }`. |
+| `primaryButtonBackgroundColor` | Hex RGB/RGBA, or a dynamic light/dark color. |
+| `secondaryButtonSubmenuItems` | One to three strings, on iOS 26.4 or later. |
+
+Colors support `#RRGGBB`, `#RRGGBBAA`, or `{ light: hex, dark: hex }`. PNG icons are limited to 128 KiB decoded and 1024 × 1024 pixels. The complete JSON configuration has a 256 KiB UTF-8 transport budget; these image and transport bounds protect the extension's resources. Native decoding validates the image. Unknown fields, arbitrary view trees and executable code are rejected. The client captures nested configuration before queuing the native call, so later caller mutations do not alter the request.
+
+`actions` is a separate optional mapping for `primary`, `secondary`, and indexed `submenu` responses. Its default is primary `close`, secondary `none`; `actions: null` restores those defaults. Menu appearance and action bindings are independent: omitted `actions.submenu` defaults each displayed item to `none`. If submenu responses are supplied, a menu must exist and its item count must match. Menu items do not require a nonnull secondary label:
+
+```ts
+if (current.shieldCapabilities?.secondarySubmenu) {
+  await screenTime.configureShield(appId, 'focus', {
+    secondaryButtonSubmenuItems: ['Close this app', 'Refresh this screen', 'Keep showing'],
+    actions: { submenu: ['close', 'defer', 'none'] },
+  });
+}
+```
+
+| Response | Result |
+| --- | --- |
+| `close` | Close the blocked app; its restriction remains in place. |
+| `none` or `stay` | Leave the shielding screen and restriction in place. |
+| `defer` | Request that iOS redraw the shield; this does not remove the restriction. |
+| `openApp` | Open Zorid through Apple's native response, on iOS 26.5 or later. |
+
+`status.shieldCapabilities.openApp` and `.secondarySubmenu` report installed OS support. Configuring an unavailable feature fails explicitly. Buttons do not execute downloaded JavaScript, navigate to an arbitrary app, or implicitly remove restrictions. Apple controls the shield's layout: this bridge exposes its public content, images, blur, colors, menu and response choices rather than accepting arbitrary SwiftUI screens. See [Apple's shield configuration](https://developer.apple.com/documentation/managedsettingsui/shieldconfiguration), [shield responses](https://developer.apple.com/documentation/managedsettings/shieldactionresponse), and [open-parental-controls-app response](https://developer.apple.com/documentation/managedsettings/shieldactionresponse/openparentalcontrolsapp).
+
+The Focus demo checks current native metadata when app blocking is explicitly enabled and saves a readable focus-themed shield only when the policy has no custom configuration. Existing developer styling is preserved. The default adds the Open Zorid button only when the native capability is reported. After installing the binary containing the shield extensions, these configuration choices can change through ordinary JavaScript deployment.
+
 For actions that mutate durable records, use the action bundle's `screenTime` capability and synchronous SDK instead of mixing direct calls with queued commands:
 
 ```ts
@@ -54,14 +115,16 @@ Apple documents a [15-minute minimum monitoring interval](https://developer.appl
 
 ## Signing and delivery
 
-The app, widget extension (which executes native button actions), and monitor need Family Controls distribution approval and compatible profiles:
+The app, widget extension (which executes native button actions), monitor and both shield extensions need Family Controls distribution approval and compatible profiles:
 
 - `app.zorid.mobile`
 - `app.zorid.mobile.widgets`
 - `app.zorid.mobile.focus-monitor`
+- `app.zorid.mobile.shield-configuration`
+- `app.zorid.mobile.shield-action`
 
-All three share `group.app.zorid.mobile`. [Apple requires the account holder to request distribution access](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement), including for participating extensions, before TestFlight distribution. Development capability alone is insufficient.
+All five share `group.app.zorid.mobile`. [Apple requires the account holder to request distribution access](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement), including for participating extensions, before TestFlight distribution. Development capability alone is insufficient.
 
 Run `gh workflow run screen-time-access.yml` to inspect existing runner-only TestFlight profiles. Its downloadable receipt contains only capability flags. Missing flags establish that the current profiles need replacement; they do not prove whether Apple has already approved the capability in the portal. Signing preparation rejects missing capabilities before a signed build is attempted.
 
-The existing profile check (run `43068058169`) found no Family Controls entitlement in the app/widget profiles and no monitor profile. A simulator artifact can verify compilation while account approval and regenerated signing profiles remain pending. Authorization, shielding, background expiry, pause/resume and actual picker appearance require a signed physical-device check.
+The existing profile check (run `43068058169`) found no Family Controls entitlement in the app/widget profiles and no monitor profile. On 2026-11-11, the account holder authorized submission through Apple’s entitlement request form. Apple confirmed submission and said it would review the request and contact the account with a status update. A subsequent check of the saved Developer Portal settings showed Family Controls (Distribution) Assigned and enabled for all five identifiers. Regenerated profile contents are being verified before signing; the earlier request receipt alone did not establish approval. No Screen Time TestFlight build has been delivered yet. Authorization, shielding, background expiry, pause/resume and actual picker appearance require a signed physical-device check.

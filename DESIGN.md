@@ -39,6 +39,8 @@ Live Activity banners pair warm neutral/light or deep green/dark backgrounds wit
 ## Interaction states
 
 Focus protection lives on the Focus page. Request Screen Time access only when the person chooses it. Present Apple's native app picker for a blocklist or allowlist; show selection counts and actual native protection state. Save app selections on the device. Pause and finish release protection. Keep a visible Turn off app blocking action and explain any failed release or emergency policy reset. Do not display an enabled preference as proof that restrictions are currently active.
+
+Downloaded code should expose the public native capability rather than a timer-specific subset. Custom Screen Time shields map Apple's configuration fields to deployable data: labels, image, blur, colors, buttons and version-gated secondary menus. The system owns the layout. Report device support before offering newer actions. Presentation extensions read prepared device-local configuration without modifying restrictions or exposing application identities. Keep the Focus demo's warm neutral background and dark green accent as a default, not a renderer restriction.
 Hydration must finish before edits. Empty views explain the next action. Errors retain input and offer retry. Offline is normal; local persistence is not described as synchronized. Disabled operations explain unavailable capability.
 
 ## Content voice

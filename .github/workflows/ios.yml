@@ -57,6 +57,8 @@ jobs:
           "$RUNNER_TEMP/zorid-surface-checks"
           swiftc modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/tests/test-plan.swift -o "$RUNNER_TEMP/zorid-screen-time-checks"
           "$RUNNER_TEMP/zorid-screen-time-checks"
+          swiftc modules/zorid-screen-time/ios/ZoridScreenTimeShield.swift modules/zorid-screen-time/tests/test-shield.swift -o "$RUNNER_TEMP/zorid-shield-checks"
+          "$RUNNER_TEMP/zorid-shield-checks"
           swiftc modules/zorid-shell/ios/ZoridRoutes.swift modules/zorid-shell/tests/test-routes.swift -o "$RUNNER_TEMP/zorid-route-checks"
           "$RUNNER_TEMP/zorid-route-checks"
       - name: Configure public update trust anchor

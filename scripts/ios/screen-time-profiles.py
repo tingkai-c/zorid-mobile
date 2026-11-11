@@ -16,7 +16,8 @@ import sys
 import tempfile
 import zipfile
 
-BUNDLES = ('app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor')
+BUNDLES = ('app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor',
+           'app.zorid.mobile.shield-configuration', 'app.zorid.mobile.shield-action')
 APP_GROUP = 'group.app.zorid.mobile'
 MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 MAX_PROFILE_BYTES = 2 * 1024 * 1024
