@@ -6,6 +6,8 @@ Zorid is a native-rendered personal workspace whose JavaScript feature library c
 
 Bun manages dependencies, scripts, tests and the desktop/WSL host CLI. Expo SDK 58 and React Native provide the iPhone app, Expo Router the downloaded app’s routing, and Expo SQLite its persistent local records. The native shell has no required tab bar or Settings route. The demo owns Today, Tasks, Focus and Calendar tabs; a new whole-library release can replace its entire interface. There is no independent arbitrary-bundle plugin runtime.
 
+Runtime `zorid-3` shares `group.app.zorid.mobile/SQLite/zorid.db` between the app and native actions. SQLite backup migrates the former app-sandbox database, including WAL records, and retains the original. App mutations read fresh records inside an exclusive write transaction; native handlers transact against the same file. Foreground activation and native record events refresh app state.
+
 `src/storage/documents.ts` stores namespaced documents with stable IDs, a payload schema version, update time and JSON data. `src/features/workspace.tsx` hydrates and validates records before edits and serializes mutations. UI state changes after a successful durable write. Tasks reference UUIDs; focus sessions preserve the task title as a historical snapshot. Timer state is timestamps plus closed work intervals, so pausing does not count as work and restarting the app can restore elapsed time. Reconciliation caps completed work at the target duration when the app resumes; there is no background JavaScript timer guarantee.
 
 All personal records currently live on the device. They remain available offline without a paired host. This does not yet provide cross-device sync, a desktop data client, a production data backend, attachments, a Notion editor or CRDT collaboration.
@@ -26,7 +28,11 @@ Offline startup works while the saved pairing remains: Expo restores its persist
 
 ## Native surfaces
 
-`src/native/surfaces` isolates focus publication from storage. Expo Widgets renders WidgetKit/ActivityKit layouts from installed supported native components; a failed surface update does not discard local records. Native date-based countdowns continue visually without per-second JS writes. The operating system controls widget refreshes and Live Activity lifetime. New renderers/capabilities need a new binary. The current focus surface demonstrates the bridge; a general visual widget editor is future work.
+`src/native/surfaces` isolates focus publication from storage. Expo Widgets renders WidgetKit/ActivityKit layouts from installed supported native components; a failed surface update does not discard local records. Native date-based countdowns continue visually without per-second JS writes. The operating system controls widget refreshes and Live Activity lifetime. New renderers/capabilities need a new binary. Focus Pause, Resume and Finish buttons dispatch versioned JavaScript handlers through native App Intents, independently of the React interface. Shared records, duplicate receipts, outbox entries and surface effects commit atomically. All iOS focus publication, including foreground startup, uses one ordered durable effect path to prevent stale app snapshots overwriting widget actions. Live Activity effects update/end existing activities and can request creation when the app execution context permits it. A general visual widget editor remains future work. See [downloaded actions](actions.md).
+
+## Downloaded app entrances
+
+Runtime `zorid-3` supports three dynamic Home Screen quick actions alongside installed Zorid Settings. Downloaded apps register their labels, icons and destinations. Validated `zorid://apps/<appId>/...` links and quick-action destinations persist in a bounded native queue until a matching downloaded route handler succeeds. Handled warm links bypass Expo Router forwarding; cold transport links are rewritten to a valid root until hydration finishes. External URLs do not automatically execute record mutations. See [routes and quick actions](routes.md).
 
 ## Future shared data backend
 

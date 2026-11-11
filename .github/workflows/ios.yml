@@ -45,6 +45,15 @@ jobs:
           swiftc modules/zorid-shell/ios/ZoridPairing.swift modules/zorid-shell/ios/ZoridShakeDetector.swift scripts/ios/test-native-pairing.swift -o "$RUNNER_TEMP/zorid-native-shell-checks"
           "$RUNNER_TEMP/zorid-native-shell-checks"
       - run: bun install --frozen-lockfile
+      - name: Verify downloaded actions and native routes
+        run: |
+          bun scripts/build-actions.ts --check
+          swiftc modules/zorid-actions/ios/ZoridActionStore.swift modules/zorid-actions/ios/ZoridActionRuntime.swift scripts/ios/test-actions.swift -framework JavaScriptCore -lsqlite3 -o "$RUNNER_TEMP/zorid-action-checks"
+          "$RUNNER_TEMP/zorid-action-checks"
+          swiftc modules/zorid-actions/ios/ZoridActionStore.swift modules/zorid-actions/ios/ZoridActionRuntime.swift scripts/ios/test-focus-actions.swift -framework JavaScriptCore -lsqlite3 -o "$RUNNER_TEMP/zorid-focus-action-checks"
+          "$RUNNER_TEMP/zorid-focus-action-checks" build/actions/focus-control.txt
+          swiftc modules/zorid-shell/ios/ZoridRoutes.swift modules/zorid-shell/tests/test-routes.swift -o "$RUNNER_TEMP/zorid-route-checks"
+          "$RUNNER_TEMP/zorid-route-checks"
       - name: Configure public update trust anchor
         env:
           ZORID_UPDATE_URL: ${{ vars.ZORID_UPDATE_URL }}

@@ -1,4 +1,4 @@
-import { Text, VStack } from '@expo/ui/swift-ui';
+import { Button, HStack, Text, VStack } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, lineLimit, padding } from '@expo/ui/swift-ui/modifiers';
 import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 import type { FocusPresentation } from './focus';
@@ -9,12 +9,18 @@ function FocusActivityLayout(props: FocusPresentation, environment: LiveActivity
     <Text timerInterval={{ lower: new Date(props.startsAt), upper: new Date(props.endsAt) }} countsDown
       modifiers={[font({ textStyle: 'title2', design: 'monospaced' })]} />
   ) : <Text>{props.elapsedLabel}</Text>;
+  const controls = <HStack spacing={12}>
+    {props.pauseTarget ? <Button label="Pause" target={props.pauseTarget} /> : null}
+    {props.resumeTarget ? <Button label="Resume" target={props.resumeTarget} /> : null}
+    {props.finishTarget ? <Button label="Finish" target={props.finishTarget} /> : null}
+  </HStack>;
   return {
     banner: (
       <VStack alignment="leading" spacing={8} modifiers={[padding({ all: 16 }), foregroundStyle(environment.colorScheme === 'dark' ? '#EBF3ED' : '#193F36')]}>
         <Text modifiers={[font({ textStyle: 'caption' })]}>{environment.isStale ? 'Session time reached' : props.statusLabel}</Text>
         <Text modifiers={[font({ textStyle: 'headline' }), lineLimit(2)]}>{props.taskTitle}</Text>
         {timer}
+        {controls}
       </VStack>
     ),
     compactLeading: <Text>Focus</Text>,
@@ -22,7 +28,7 @@ function FocusActivityLayout(props: FocusPresentation, environment: LiveActivity
     minimal: <Text>F</Text>,
     expandedLeading: <Text>{props.statusLabel}</Text>,
     expandedTrailing: timer,
-    expandedBottom: <Text modifiers={[lineLimit(2)]}>{props.taskTitle}</Text>,
+    expandedBottom: <VStack spacing={8}><Text modifiers={[lineLimit(2)]}>{props.taskTitle}</Text>{controls}</VStack>,
   };
 }
 

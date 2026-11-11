@@ -7,8 +7,16 @@ const start = '  // @generated begin zorid-shell';
 const end = '  // @generated end zorid-shell';
 const hooks = `${start}
   override func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    connectionOptions.urlContexts.forEach { _ = ZoridShellCoordinator.shared.handleURL($0.url) }
     super.scene(scene, willConnectTo: session, options: connectionOptions)
     ZoridShellCoordinator.shared.attach(to: window, shortcut: connectionOptions.shortcutItem)
+  }
+
+  override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    let unhandledContexts = Set(URLContexts.filter { !ZoridShellCoordinator.shared.handleURL($0.url) })
+    if !unhandledContexts.isEmpty {
+      super.scene(scene, openURLContexts: unhandledContexts)
+    }
   }
 
   override func sceneDidBecomeActive(_ scene: UIScene) {

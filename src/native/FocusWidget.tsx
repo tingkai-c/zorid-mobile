@@ -1,4 +1,4 @@
-import { Text, VStack } from '@expo/ui/swift-ui';
+import { Button, HStack, Text, VStack } from '@expo/ui/swift-ui';
 import { containerBackground, font, foregroundStyle, lineLimit } from '@expo/ui/swift-ui/modifiers';
 import { createWidget, type WidgetEnvironment } from 'expo-widgets';
 import type { FocusPresentation } from './focus';
@@ -20,6 +20,11 @@ function FocusLayout(props: FocusPresentation, environment: WidgetEnvironment) {
       ) : (
         <Text modifiers={[font({ textStyle: 'title2', design: 'monospaced' })]}>{props.status === 'idle' ? 'Zorid' : props.elapsedLabel}</Text>
       )}
+      <HStack spacing={8}>
+        {props.pauseTarget ? <Button label="Pause" target={props.pauseTarget} /> : null}
+        {props.resumeTarget ? <Button label="Resume" target={props.resumeTarget} /> : null}
+        {props.finishTarget ? <Button label="Finish" target={props.finishTarget} /> : null}
+      </HStack>
     </VStack>
   );
 }

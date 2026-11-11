@@ -6,6 +6,7 @@ export interface DocumentDatabase {
 }
 export async function initializeDocuments(db: DocumentDatabase) {
   await db.execAsync(`PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 1000;
     CREATE TABLE IF NOT EXISTS documents (
       feature TEXT NOT NULL, collection TEXT NOT NULL, id TEXT NOT NULL,
       schema_version INTEGER NOT NULL, updated_at INTEGER NOT NULL, data TEXT NOT NULL,

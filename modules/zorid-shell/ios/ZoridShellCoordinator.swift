@@ -46,6 +46,7 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
       window.addGestureRecognizer(hold)
       gesture = hold
     }
+    ZoridQuickActions.restore()
     if let shortcut { _ = handleShortcut(shortcut) }
     inspectStartup()
     if !startupResolved, readinessTimer == nil {
@@ -85,9 +86,16 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
 
   @discardableResult
   public func handleShortcut(_ item: UIApplicationShortcutItem) -> Bool {
-    guard item.type == Self.settingsShortcutType else { return false }
-    openSettings()
-    return true
+    if item.type == Self.settingsShortcutType {
+      openSettings()
+      return true
+    }
+    return ZoridQuickActions.handle(item)
+  }
+
+  @discardableResult
+  public func handleURL(_ url: URL) -> Bool {
+    ZoridRouteQueue.shared.enqueue(url.absoluteString)
   }
 
   @objc private func didHold(_ recognizer: UILongPressGestureRecognizer) {

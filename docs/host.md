@@ -18,7 +18,7 @@ The native update configuration must declare `requestHeaders.Authorization` befo
 
 `init` outputs the **public** certificate path. Set `ZORID_UPDATE_URL` to the origin plus `/updates` and `ZORID_UPDATE_CERTIFICATE` to this public certificate for native builds. The matching Expo code-signing metadata is `{ "keyid": "main", "alg": "rsa-v1_5-sha256" }`. The host itself listens only on loopback. HTTPS termination is handled by Tailscale Serve. `init --dev-loopback --url http://127.0.0.1:8787` exists for local service development; an iPhone cannot use the host's loopback address.
 
-Runtime `zorid-2` opens native Zorid Settings on first launch. Pairing attempts to download and launch the first compatible release. Publish that runtime before pairing. Later launches open the cached app directly. Open **Zorid Settings** with a three-finger hold, a shake on builds that support it, or the Home Screen shortcut.
+Runtime `zorid-3` opens native Zorid Settings on first launch. Pairing attempts to download and launch the first compatible release. Publish that runtime before pairing. Later launches open the cached app directly. Open **Zorid Settings** with a three-finger hold, a shake on builds that support it, or the Home Screen shortcut.
 
 ## Pairing contract
 

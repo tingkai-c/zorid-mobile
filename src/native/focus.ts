@@ -4,6 +4,7 @@ export type FocusInput = {
   /** Unix epoch milliseconds. */
   endsAt?: number;
   elapsedSeconds?: number;
+  presentation?: FocusPresentation;
 };
 
 export type FocusPresentation = {
@@ -14,6 +15,9 @@ export type FocusPresentation = {
   endsAt: number;
   elapsedLabel: string;
   elapsedSeconds: number;
+  pauseTarget?: string;
+  resumeTarget?: string;
+  finishTarget?: string;
 };
 
 export type SurfaceResult = {
@@ -46,6 +50,7 @@ export function focusTimeline(props: FocusPresentation, now: number) {
     entries.push({ date: new Date(props.endsAt), props: {
       ...props, status: 'completed', statusLabel: 'Session complete', elapsedSeconds: elapsed,
       elapsedLabel: `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`,
+      pauseTarget: undefined, resumeTarget: undefined, finishTarget: undefined,
     } });
   }
   return entries;

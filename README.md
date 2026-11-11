@@ -41,7 +41,7 @@ export ZORID_UPDATE_URL=https://your-host.your-tailnet.ts.net:10000/updates
 export ZORID_UPDATE_CERTIFICATE="$HOME/.local/share/zorid/certificate.pem"
 bun run export:ios
 bunx expo config --type public --json > dist/ios/expoConfig.json
-bun run host deploy dist/ios --runtime zorid-2
+bun run host deploy dist/ios --runtime zorid-3
 ```
 
 On first launch, native setup pairs and loads the first compatible app. Later launches open the cached app directly. The app controls its full interface, including navigation. Hold three fingers on the screen for one second, or long-press the Home Screen icon → **Zorid Settings**, to check/download/apply later releases. Already cached code and saved tasks work without the host. The phone must be connected to the same tailnet to download. Changing the pinned host/certificate or native capabilities requires a new binary. Bump `runtimeVersion` in `app.config.ts` whenever native dependencies or configuration become incompatible; never reuse a runtime for incompatible builds.

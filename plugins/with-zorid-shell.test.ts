@@ -37,3 +37,16 @@ describe('native settings lifecycle integration', () => {
     expect(() => patchSceneDelegate(`${template}\n  // @generated begin zorid-shell`)).toThrow('Incomplete');
   });
 });
+
+describe('downloaded app deep-link lifecycle integration', () => {
+  test('persists cold and warm app routes while retaining Expo forwarding', () => {
+    const patched = patchSceneDelegate(template);
+    expect(patched).toContain('connectionOptions.urlContexts.forEach');
+    expect(patched.indexOf('connectionOptions.urlContexts.forEach')).toBeLessThan(patched.indexOf('super.scene(scene, willConnectTo:'));
+    expect(patched).toContain('override func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>)');
+    expect(patched).toContain('let unhandledContexts = Set(URLContexts.filter { !ZoridShellCoordinator.shared.handleURL($0.url) })');
+    expect(patched).toContain('if !unhandledContexts.isEmpty');
+    expect(patched).toContain('super.scene(scene, openURLContexts: unhandledContexts)');
+    expect(patched).not.toContain('super.scene(scene, openURLContexts: URLContexts)');
+  });
+});

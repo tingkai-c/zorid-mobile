@@ -25,7 +25,7 @@ export function publishFocus(input: FocusInput): Promise<SurfaceResult> {
         import('./FocusWidget'), import('./FocusActivity'),
       ]);
       const now = Date.now();
-      const props = presentFocus(input, now);
+      const props = input.presentation ?? presentFocus(input, now);
       widget.updateTimeline(focusTimeline(props, now));
       result.widgetUpdated = true;
       const instances = activity.getInstances();

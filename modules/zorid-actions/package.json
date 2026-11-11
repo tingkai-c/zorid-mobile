@@ -1,0 +1,9 @@
+{
+  "name": "zorid-actions",
+  "version": "0.1.0",
+  "description": "Durable native action runtime for Zorid apps and extensions",
+  "license": "MIT",
+  "author": "Zorid contributors",
+  "homepage": "https://github.com/tingkai-c/zorid-mobile",
+  "private": true
+}
