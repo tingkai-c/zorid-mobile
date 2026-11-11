@@ -140,6 +140,20 @@ struct ZoridActionChecks {
     let capabilityFailure = try failureMessage { _ = try invoke(runtime) }
     try check(capabilityFailure == "The app action lacks the records capability.", "native capability failure takes precedence over a later JavaScript exception")
 
+    try install(runtime, "function(args,sdk){sdk.records.put('parse-intrinsic','record',{value:7});}")
+    _ = try invoke(runtime)
+    try install(runtime, "function(args,sdk){JSON.parse=function(){return {forged:true};};return {get:sdk.records.get('parse-intrinsic','record'),list:sdk.records.list('parse-intrinsic')};}")
+    let parsedRecords = try invoke(runtime)["result"] as! [String: Any]
+    try check((parsedRecords["get"] as? [String: Any])?["value"] as? Int == 7, "record get uses the captured JSON parser")
+    try check(((parsedRecords["list"] as? [[String: Any]])?.first)?["value"] as? Int == 7, "record list uses the captured JSON parser")
+    try failureDatabase.execute("INSERT INTO documents VALUES(?,?,?,?,?,?)", ["demo", "invalid-json", "record", 1, 0, "{"])
+    for operation in ["sdk.records.get('invalid-json','record')", "sdk.records.list('invalid-json')"] {
+      try install(runtime, "function(args,sdk){sdk.records.put('items','invalid-parse-write',{value:1});try{" + operation + ";}catch(e){}return null;}")
+      let parseFailure = try failureMessage { _ = try invoke(runtime) }
+      try check(parseFailure == "Stored action record contains invalid JSON.", "invalid stored JSON remains a latched native capability error")
+      try check(try failureDatabase.rows("SELECT id FROM documents WHERE feature=? AND collection=? AND id=?", ["demo", "items", "invalid-parse-write"]).isEmpty, "invalid stored JSON rolls back preceding writes")
+    }
+
     try install(runtime, "function(args,sdk){try{sdk.records.put('items','illegal',{value:1});}catch(e){}return 'caught';}", capabilities: [])
     try fails("caught capability error still rejects transaction") { _ = try invoke(runtime) }
     try install(runtime, "async function(args,sdk){sdk.records.put('items','illegal',{value:1});return 1;}")

@@ -153,6 +153,7 @@ private final class ZoridActionExecution {
   private let capabilities: Set<String>
   private weak var context: JSContext?
   private var strictStringify: JSValue?
+  private var recordParse: JSValue?
   private var failure: Error?
   private var operations = 0
   private(set) var didChangeRecords = false
@@ -164,6 +165,28 @@ private final class ZoridActionExecution {
   func run(source: String, args: Any) throws -> Any {
     guard let context = JSContext(), let sdk = JSValue(newObjectIn: context) else { throw ZoridActionError("Unable to create the action runtime.") }
     self.context = context
+    recordParse = context.evaluateScript("JSON.parse")
+    let errorMessage = context.evaluateScript("""
+      (function(descriptor,apply,slice){
+        return function(error){
+          try {
+            if(error===null||typeof error!=='object') return null;
+            var property=descriptor(error,'message');
+            var valueProperty=property&&descriptor(property,'value');
+            var message=valueProperty&&valueProperty.value;
+            if(typeof message!=='string'||message.length===0) return null;
+            message=apply(slice,message,[0,240]);
+            for(var i=0;i<message.length;i++) {
+              var character=message[i];
+              if(character<='\\u001f'||(character>='\\u007f'&&character<='\\u009f')) return null;
+            }
+            var last=message[message.length-1];
+            if(last>='\\ud800'&&last<='\\udbff') message=apply(slice,message,[0,-1]);
+            return message.length ? message : null;
+          } catch(_) { return null; }
+        };
+      })(Object.getOwnPropertyDescriptor,Reflect.apply,String.prototype.slice)
+      """)
     strictStringify = context.evaluateScript("""
       (function(stringify,isFinite){
         return function(value){
@@ -175,7 +198,7 @@ private final class ZoridActionExecution {
         };
       })(JSON.stringify,Number.isFinite)
       """)
-    defer { strictStringify = nil }
+    defer { strictStringify = nil; recordParse = nil }
     sdk.setObject(now, forKeyedSubscript: "now" as NSString)
     let records = JSValue(newObjectIn: context)!
     let get: @convention(block) (JSValue, JSValue, JSValue) -> Any? = { collection, id, expectedVersion in
@@ -184,7 +207,7 @@ private final class ZoridActionExecution {
         let expectedVersion = try self.schemaVersion(expectedVersion)
         guard let row = try self.database.rows("SELECT schema_version,data FROM documents WHERE feature=? AND collection=? AND id=?", [self.appId, collection, id]).first else { return NSNull() }
         guard (row["schema_version"] as? NSNumber)?.intValue == expectedVersion else { throw ZoridActionError("Unsupported record schema version. Refresh the app before changing this record.") }
-        return try actionParse(row["data"] as! String)
+        return try self.recordValue(row["data"] as! String)
       }
     }
     let list: @convention(block) (JSValue, JSValue) -> Any? = { collection, expectedVersion in
@@ -200,7 +223,7 @@ private final class ZoridActionExecution {
         guard rows.count <= 1000 else { throw ZoridActionError("Action collection exceeds the 1,000-record read limit.") }
         return try rows.map {
           guard ($0["schema_version"] as? NSNumber)?.intValue == expectedVersion else { throw ZoridActionError("Unsupported record schema version. Refresh the app before changing this collection.") }
-          return try actionParse($0["data"] as! String)
+          return try self.recordValue($0["data"] as! String)
         }
       }
     }
@@ -274,7 +297,14 @@ private final class ZoridActionExecution {
     }
     let result = handler.call(withArguments: [args, sdk])
     if let failure { throw failure }
-    guard context.exception == nil else { throw ZoridActionError("The app action failed; no changes were saved.") }
+    if let exception = context.exception {
+      context.exception = nil
+      let detail = errorMessage?.call(withArguments: [exception])
+      let message = context.exception == nil && detail?.isString == true ? detail?.toString() : nil
+      context.exception = exception
+      throw ZoridActionError(message.map { "The app action failed: \($0) No changes were saved." }
+        ?? "The app action failed; no changes were saved.")
+    }
     if let result, !result.isNull, !result.isUndefined,
        context.evaluateScript("(function(value){return value != null && typeof value.then === 'function';})")?.call(withArguments: [result])?.toBool() == true {
       throw ZoridActionError("Action handlers must finish synchronously. Queue deferred work in the outbox.")
@@ -319,6 +349,16 @@ private final class ZoridActionExecution {
     }
     _ = try actionParse(json)
     return json
+  }
+
+  // Parse stored JSON in the executing JS engine. A Foundation NSNumber round
+  // trip can change fractional timestamps and invalidate an otherwise fresh revision.
+  private func recordValue(_ json: String) throws -> JSValue {
+    guard json.utf8.count <= 1_048_576, let context,
+          let value = recordParse?.call(withArguments: [json]), context.exception == nil else {
+      throw ZoridActionError("Stored action record contains invalid JSON.")
+    }
+    return value
   }
 
   private func widgetValue(_ value: Any) -> Bool {

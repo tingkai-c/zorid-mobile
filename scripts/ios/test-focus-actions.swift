@@ -55,6 +55,18 @@ struct FocusActionChecks {
     try expect(finalEffect[0]["endActivity"] as? Bool == true, "Completion must end existing activity")
     let finalProps = finalEffect[0]["props"] as! [String: Any]
     try expect(finalProps["pauseTarget"] == nil && finalProps["resumeTarget"] == nil && finalProps["finishTarget"] == nil, "Completed widget must have no controls")
+
+    // Match an app reading raw SQLite JSON with JSON.parse, rather than creating
+    // the revision through the native bridge under test. Foundation previously
+    // rounded this decimal differently, so the real handler rejected a fresh Pause.
+    let fractional = #"{"id":"focus-fractional","taskId":null,"taskTitle":"Synthetic fractional focus","startedAt":1794400000000.000244140625,"targetMs":315360000000,"intervals":[],"runningSince":1794400000000.000244140625,"status":"running","endedAt":null}"#
+    try db.execute("INSERT INTO documents VALUES(?,?,?,?,?,?)", ["productivity","sessions","focus-fractional",1,now,fractional])
+    let fractionalPause = try object(runtime.dispatch(actionJSON([
+      "appId":"productivity","actionId":"focus.control","invocationId":"pause-fractional-seam",
+      "bundleVersion":"focus-actions-1","args":["sessionId":"focus-fractional",
+        "revision":"running:1794400000000.0002:0:0:0","action":"pause"],
+    ])))
+    try expect((fractionalPause["result"] as! [String: Any])["status"] as? String == "paused", "A fresh app-side revision must pause the same fractional record in native actions")
     print("Native compiled focus action lifecycle passed")
   }
 }
