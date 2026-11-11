@@ -1,5 +1,9 @@
 # Foundation delivery evidence
 
+## First download after TestFlight
+
+Published runtime `zorid-2` release `701b32cf-64e9-4333-8bae-bf66a7d192ff` on 2026-11-11 after TestFlight build 16. The previous release predated the new embedded setup bundle and failed Expo's timestamp selection rule. An authenticated HTTPS probe reproduced the rejection, then accepted the fresh release and verified its RSA signature and all 24 asset hashes. The temporary probe credentials were revoked. Applying and launching this release on the physical iPhone still needs device confirmation.
+
 ## Build artifacts
 
 - [Signed build 14](https://github.com/tingkai-c/zorid-mobile/actions/runs/42913625544/artifacts/13808458739) packages the SwiftUI Settings shell from `17efd4c`. The IPA checksum, Settings quick action, pinned update trust, and both provisioning profiles were verified. CoreDevice confirmed build 14 installed over build 11 on the registered iPhone. iOS required the phone to be unlocked for remote launch.
