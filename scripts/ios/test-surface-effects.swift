@@ -125,8 +125,10 @@ struct SurfaceEffectChecks {
     try expect(try await stale.flush() == 1, "stale effects should acknowledge without applying old state")
     try expect(stale.widgets.isEmpty && stale.activities.isEmpty, "stale effects must not overwrite newer state")
     func restriction(_ sequence: Int, clear: Bool) -> [String: Any] {
-      ["id": "restriction-\(sequence)", "appId": "test-app", "sequence": sequence,
-       "screenTime": clear ? ["clear": true] : ["policyId": "focus", "sessionId": "session", "endsAt": 123456789]]
+      let command: [String: Any]
+      if clear { command = ["clear": true] }
+      else { command = ["policyId": "focus", "sessionId": "session", "endsAt": 123456789] }
+      return ["id": "restriction-\(sequence)", "appId": "test-app", "sequence": sequence, "screenTime": command]
     }
     let unblocked = Fixture([restriction(1, clear: false), effect(2), restriction(3, clear: true)])
     unblocked.rejectRestriction = { $0 == 1 }
