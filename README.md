@@ -2,7 +2,7 @@
 
 An open-source personal workspace for iPhone. Build native-rendered tools in React Native, keep their data on the device, and deliver signed JavaScript releases from your paired laptop over Tailscale.
 
-This foundation includes tasks, a persistent focus timer, work-session history, native host pairing/settings, Focus widgets/Live Activities, and a deployable Screen Time bridge with configurable blocking screens. Runtime `zorid-5` source adds custom Core Haptics patterns and common device APIs alongside UIKit feedback. It uses Bun, Expo SDK 58, React Native, and SQLite. PostgreSQL is the future shared-data foundation; cross-device synchronization is **not implemented yet**. See [delivery evidence](docs/verification.md) for confirmed builds and remaining device checks.
+This foundation includes tasks, a persistent focus timer, work-session history, native host pairing/settings, Focus widgets/Live Activities, and a deployable Screen Time bridge with configurable blocking screens. Runtime `zorid-5` adds custom Core Haptics patterns and common device APIs alongside UIKit feedback. It uses Bun, Expo SDK 58, React Native, and SQLite. PostgreSQL is the future shared-data foundation; cross-device synchronization is **not implemented yet**. See [delivery evidence](docs/verification.md) for confirmed builds and remaining device checks.
 
 ## Develop on Linux / WSL
 
@@ -46,7 +46,7 @@ bun run host deploy dist/ios --runtime zorid-5
 
 On first launch, native setup pairs and loads the first compatible app. Later launches open the cached app directly. The app controls its full interface, including navigation. Hold three fingers on the screen for one second, or long-press the Home Screen icon → **Zorid Settings**, to check/download/apply later releases. Already cached code and saved tasks work without the host. The phone must be connected to the same tailnet to download. Changing the pinned host/certificate or native capabilities requires a new binary. Bump `runtimeVersion` in `app.config.ts` whenever native dependencies or configuration become incompatible; never reuse a runtime for incompatible builds.
 
-Install a compatible runtime `zorid-5` binary once to use its new native capabilities; subsequent signed JavaScript releases can change their UI, patterns and orchestration. Source integration does not establish that the binary has shipped or that every API passed physical-device testing.
+Install a compatible runtime `zorid-5` binary once to use its new native capabilities; subsequent signed JavaScript releases can change their UI, patterns and orchestration. [Build 28](https://github.com/tingkai-c/zorid-mobile/actions/runs/43083842780) compiled, signed and uploaded to TestFlight; its signed OTA release is verified. Apple processing and physical-device testing are recorded separately in [delivery evidence](docs/verification.md#core-haptics-and-common-device-apis).
 
 ## Boundaries
 

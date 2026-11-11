@@ -1,4 +1,6 @@
-# UIKit haptics for deployed apps
+# Haptics for deployed apps
+
+## UIKit feedback
 
 The installed Zorid shell exposes UIKit feedback generators to downloaded React Native application code. These calls run in the app process; the isolated widget-action JavaScript runtime does not expose UIKit. After installing a binary containing this bridge, haptic calls can change through direct deployment without another native build.
 
@@ -31,7 +33,7 @@ if ((await haptics.status()).location) {
 
 Coordinates are finite logical points relative to the current presented foreground native view. Negative and outside-view coordinates are accepted; these are neither normalized coordinates nor physical pixels. A location call rejects when the OS lacks support or a foreground view is unavailable. Values are captured before crossing the bridge.
 
-Web and older binaries return `available: false` with an upgrade reason. Feedback calls reject with a clear message instead of simulating success. Preparation and reset also detect their own optional native methods. Unknown options, invalid styles, nonfinite coordinates, and out-of-range intensity are rejected before native execution. This API exposes UIKit feedback generators; it does not expose custom Core Haptics patterns.
+Web and older binaries return `available: false` with an upgrade reason. Feedback calls reject with a clear message instead of simulating success. Preparation and reset also detect their own optional native methods. Unknown options, invalid styles, nonfinite coordinates, and out-of-range intensity are rejected before native execution. The `haptics` facade exposes UIKit feedback generators. Use the separate `coreHaptics` facade below for custom patterns.
 
 ## Custom Core Haptics patterns
 
