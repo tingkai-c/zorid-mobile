@@ -1,0 +1,9 @@
+{
+  "name": "zorid-device",
+  "version": "0.1.0",
+  "description": "Device capabilities for trusted deployed Zorid apps",
+  "license": "MIT",
+  "author": "Zorid contributors",
+  "homepage": "https://github.com/tingkai-c/zorid-mobile",
+  "private": true
+}

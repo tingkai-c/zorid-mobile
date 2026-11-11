@@ -9,12 +9,21 @@ if (updateURL && (new URL(updateURL).protocol !== 'https:' || updateURL !== `${n
 const config: ExpoConfig = {
   name: 'Zorid', slug: 'zorid-mobile', scheme: 'zorid', version: '0.1.0',
   orientation: 'portrait', userInterfaceStyle: 'light', icon: './assets/icon.png',
-  runtimeVersion: 'zorid-4',
+  runtimeVersion: 'zorid-5',
   ios: {
     bundleIdentifier: 'app.zorid.mobile',
     supportsTablet: true,
     buildNumber: process.env.GITHUB_RUN_NUMBER ?? '1',
     config: { usesNonExemptEncryption: false },
+    infoPlist: {
+      NSFaceIDUsageDescription: 'Allow Zorid tools to verify your identity with Face ID.',
+      NSPhotoLibraryAddUsageDescription: 'Allow Zorid tools to save photos and videos you choose to your library.',
+      NSCalendarsUsageDescription: 'Allow Zorid tools to read and manage calendar events you choose.',
+      NSCalendarsWriteOnlyAccessUsageDescription: 'Allow Zorid tools to add events to your calendars.',
+      NSCalendarsFullAccessUsageDescription: 'Allow Zorid tools to read and manage calendar events you choose.',
+      NSRemindersUsageDescription: 'Allow Zorid tools to read and manage reminders you choose.',
+      NSRemindersFullAccessUsageDescription: 'Allow Zorid tools to read and manage reminders you choose.',
+    },
   },
   android: { package: 'app.zorid.mobile' },
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
@@ -31,7 +40,24 @@ const config: ExpoConfig = {
     './plugins/with-zorid-shell.cjs',
     ['expo-router', { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless', 'Cross-Origin-Opener-Policy': 'same-origin' } }],
     'expo-sqlite', 'expo-secure-store',
-    ['expo-camera', { cameraPermission: 'Allow Zorid to scan your laptop pairing code.', microphonePermission: false, recordAudioAndroid: false }],
+    ['expo-camera', {
+      cameraPermission: 'Allow Zorid tools to take photos, scan documents and scan codes.',
+      microphonePermission: 'Allow Zorid tools to record audio with videos.', recordAudioAndroid: false,
+    }],
+    ['expo-audio', {
+      microphonePermission: 'Allow Zorid tools to record audio when you choose to record.',
+      enableBackgroundPlayback: false, enableBackgroundRecording: false, recordAudioAndroid: false,
+    }],
+    ['expo-location', {
+      locationWhenInUsePermission: 'Allow Zorid tools to use your location while you use location features.',
+      locationAlwaysPermission: false, locationAlwaysAndWhenInUsePermission: false,
+      locationFullAccuracyPermission: 'Allow Zorid tools to use precise location for the feature you requested.',
+      motionUsagePermission: 'Allow Zorid tools to read motion and fitness data when you use those features.',
+      isIosBackgroundLocationEnabled: false, isAndroidBackgroundLocationEnabled: false,
+      isAndroidForegroundServiceEnabled: false,
+    }],
+    ['expo-sensors', { motionPermission: 'Allow Zorid tools to read motion and fitness data when you use those features.' }],
+    ['expo-contacts', { contactsPermission: 'Allow Zorid tools to use the contacts you choose to share.' }],
     ['expo-widgets', {
       bundleIdentifier: 'app.zorid.mobile.widgets', groupIdentifier: 'group.app.zorid.mobile', enablePushNotifications: false,
       widgets: [{ name: 'ZoridFocus', displayName: 'Zorid Focus', description: 'Your current task and focus countdown.', ios: { supportedFamilies: ['systemSmall', 'systemMedium'], initialLayout: './src/native/FocusWidget.tsx' } }],

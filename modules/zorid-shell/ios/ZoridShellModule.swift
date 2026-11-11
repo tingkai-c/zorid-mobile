@@ -15,7 +15,10 @@ public final class ZoridShellModule: Module {
     }
     OnDestroy {
       NotificationCenter.default.removeObserver(self)
-      DispatchQueue.main.async { ZoridHaptics.shared.reset() }
+      DispatchQueue.main.async {
+        ZoridHaptics.shared.reset()
+        ZoridCoreHaptics.shared.reset()
+      }
     }
 
     AsyncFunction("setQuickActions") { (appId: String, json: String) in
@@ -50,6 +53,24 @@ public final class ZoridShellModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("resetHaptics") {
       ZoridHaptics.shared.reset()
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsStatus") { () -> String in
+      try ZoridCoreHaptics.shared.status()
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsCreate") { (patternJSON: String) -> String in
+      try ZoridCoreHaptics.shared.create(patternJSON: patternJSON)
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsCommand") { (playerId: String, commandJSON: String) in
+      try ZoridCoreHaptics.shared.command(playerID: playerId, commandJSON: commandJSON)
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsStart") {
+      try ZoridCoreHaptics.shared.start()
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsStop") {
+      ZoridCoreHaptics.shared.stop()
+    }.runOnQueue(.main)
+    AsyncFunction("coreHapticsReset") {
+      ZoridCoreHaptics.shared.reset()
     }.runOnQueue(.main)
   }
 

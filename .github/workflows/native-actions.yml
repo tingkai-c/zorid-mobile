@@ -6,6 +6,10 @@ on:
       - modules/zorid-screen-time/**
       - native/screen-time/**
       - modules/zorid-shell/ios/ZoridHaptics.swift
+      - modules/zorid-shell/ios/ZoridCoreHaptics.swift
+      - modules/zorid-shell/ios/ZoridHapticLifecycle.swift
+      - modules/zorid-shell/tests/test-haptic-lifecycle.swift
+      - modules/zorid-device/**
       - native/actions/ZoridSurfaceEffectQueue.swift
       - scripts/ios/test-surface-effects.swift
       - src/actions/**
@@ -48,6 +52,12 @@ jobs:
           sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
           swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/ios/ZoridScreenTimeShield.swift modules/zorid-screen-time/ios/ZoridScreenTimeController.swift native/screen-time/*.swift
           swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-shell/ios/ZoridHaptics.swift
+          swiftc modules/zorid-shell/ios/ZoridHapticLifecycle.swift modules/zorid-shell/tests/test-haptic-lifecycle.swift -o "$RUNNER_TEMP/zorid-haptic-lifecycle-checks"
+          "$RUNNER_TEMP/zorid-haptic-lifecycle-checks"
+          swiftc modules/zorid-device/ios/ZoridNotificationPayload.swift modules/zorid-device/ios/ZoridNotificationResponseStore.swift modules/zorid-device/tests/test-notifications.swift -o "$RUNNER_TEMP/zorid-notification-checks"
+          "$RUNNER_TEMP/zorid-notification-checks"
+          swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-shell/ios/ZoridHapticLifecycle.swift modules/zorid-shell/ios/ZoridCoreHaptics.swift
+          swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-device/ios/ZoridDeviceSupport.swift modules/zorid-device/ios/ZoridNotificationPayload.swift modules/zorid-device/ios/ZoridNotificationResponseStore.swift modules/zorid-device/ios/ZoridDeviceAuthentication.swift modules/zorid-device/ios/ZoridDeviceNotifications.swift modules/zorid-device/ios/ZoridDeviceMedia.swift modules/zorid-device/ios/ZoridDeviceCalendar.swift
       - name: Compare native record decoding with JavaScript JSON parsing
         if: always()
         run: |
