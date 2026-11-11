@@ -15,7 +15,8 @@ const build = { type: 'builds', id: 'synthetic-build', attributes: {
 const detail = { type: 'buildBetaDetails', id: 'private-detail', attributes: { internalBuildState: 'IN_BETA_TESTING' } };
 const group = { type: 'betaGroups', id: 'private-group', attributes: { isInternalGroup: true, name: 'PRIVATE_GROUP_NAME' } };
 const expected = { buildNumber: '21', checkState: 'FOUND', processingState: 'VALID',
-  buildAudienceType: 'INTERNAL_ONLY', internalBuildState: 'IN_BETA_TESTING', internalGroupAssigned: true };
+  buildAudienceType: 'INTERNAL_ONLY', internalBuildState: 'IN_BETA_TESTING', internalGroupAssigned: true,
+  failedEndpoint: null, httpStatus: null };
 const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const env = { BUILD_NUMBER: '21', ASC_API_KEY_ID: 'synthetic-key-id', ASC_API_ISSUER_ID: 'synthetic-issuer',
   ASC_API_KEY_P8_BASE64: Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64') };
@@ -29,25 +30,28 @@ function responses(payloads, inspect = () => {}) {
   };
 }
 
-test('reads only the requested app, numeric iOS build and actual internal-group membership', async () => {
-  const fetchImpl = responses([{ data: [app] }, { data: [build] }, { data: detail }, { data: [group] }], (url, options, index) => {
+test('uses the known app/build queries and checks actual internal-group membership', async () => {
+  const fetchImpl = responses([{ data: [app] }, { data: [build] }, { data: detail }, { data: [group] }, { data: [build] }], (url, options, index) => {
     assert.equal(url.origin, 'https://api.appstoreconnect.apple.com');
     assert.equal(options.method, 'GET');
     assert.equal(options.redirect, 'error');
     assert.equal(options.headers.Authorization, 'Bearer synthetic-token');
     assert.ok(options.signal);
-    if (index === 0) assert.equal(url.searchParams.get('filter[bundleId]'), 'app.zorid.mobile');
+    if (index === 0) assert.deepEqual([...url.searchParams], [['filter[bundleId]', 'app.zorid.mobile']]);
     if (index === 1) {
-      assert.equal(url.searchParams.get('filter[app]'), app.id);
-      assert.equal(url.searchParams.get('filter[version]'), '21');
-      assert.equal(url.searchParams.get('filter[preReleaseVersion.platform]'), 'IOS');
+      assert.deepEqual([...url.searchParams], [['filter[app]', app.id], ['filter[version]', '21'], ['limit', '3']]);
     }
-    if (index === 2) assert.equal(url.pathname, `/v1/builds/${build.id}/buildBetaDetail`);
+    if (index === 2) {
+      assert.equal(url.pathname, `/v1/builds/${build.id}/buildBetaDetail`);
+      assert.equal(url.search, '');
+    }
     if (index === 3) {
-      assert.equal(url.searchParams.get('filter[app]'), app.id);
-      assert.equal(url.searchParams.get('filter[builds]'), build.id);
-      assert.equal(url.searchParams.get('filter[isInternalGroup]'), 'true');
-      assert.equal(url.searchParams.get('fields[betaGroups]'), 'isInternalGroup');
+      assert.equal(url.pathname, `/v1/apps/${app.id}/betaGroups`);
+      assert.equal(url.search, '');
+    }
+    if (index === 4) {
+      assert.equal(url.pathname, `/v1/betaGroups/${group.id}/builds`);
+      assert.equal(url.search, '');
     }
   });
   assert.deepEqual(await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic-token', fetchImpl }), expected);
@@ -56,7 +60,8 @@ test('reads only the requested app, numeric iOS build and actual internal-group 
 test('reports pending processing and no assigned internal group without claiming distribution', async () => {
   const pending = { ...build, attributes: { ...build.attributes, processingState: 'PROCESSING' } };
   const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
-    { data: [app] }, { data: [pending] }, { data: { ...detail, attributes: { internalBuildState: 'PROCESSING' } } }, { data: [] },
+    { data: [app] }, { data: [pending] }, { data: { ...detail, attributes: { internalBuildState: 'PROCESSING' } } },
+    { data: [group] }, { data: [] },
   ]) });
   assert.deepEqual(result, { ...expected, processingState: 'PROCESSING', internalBuildState: 'PROCESSING', internalGroupAssigned: false });
 });
@@ -64,7 +69,7 @@ test('reports pending processing and no assigned internal group without claiming
 test('unknown provider states and personal response fields cannot enter the receipt', async () => {
   const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
     { data: [app] }, { data: [{ ...build, attributes: { version: '21', processingState: 'PRIVATE_TOKEN', buildAudienceType: 'PRIVATE_TOKEN' } }] },
-    { data: { ...detail, attributes: { internalBuildState: 'PRIVATE_TOKEN' } } }, { data: [group] },
+    { data: { ...detail, attributes: { internalBuildState: 'PRIVATE_TOKEN' } } }, { data: [group] }, { data: [build] },
   ]) });
   assert.deepEqual(result, { ...expected, processingState: 'UNKNOWN', buildAudienceType: 'UNKNOWN', internalBuildState: 'UNKNOWN' });
   assert.ok(!JSON.stringify(result).includes('PRIVATE'));
@@ -100,14 +105,54 @@ test('authentication, access, network and malformed-response errors expose only 
     const result = await runStatus(env, async () => new Response('PRIVATE_RESPONSE_TOKEN', { status }));
     assert.equal(result.receipt.checkState, state);
     assert.equal(result.exitCode, 1);
+    assert.equal(result.receipt.failedEndpoint, 'APPS');
+    assert.equal(result.receipt.httpStatus, status);
     assert.ok(!JSON.stringify(result).includes('PRIVATE'));
   }
   const network = await runStatus(env, async () => { throw new Error('PRIVATE_NETWORK_TOKEN'); });
   assert.equal(network.receipt.checkState, 'NETWORK_FAILED');
+  assert.equal(network.receipt.failedEndpoint, 'APPS');
+  assert.equal(network.receipt.httpStatus, null);
   const malformed = await runStatus(env, async () => new Response('PRIVATE_INVALID_JSON'));
   assert.equal(malformed.receipt.checkState, 'INVALID_RESPONSE');
+  assert.equal(malformed.receipt.failedEndpoint, 'APPS');
+  assert.equal(malformed.receipt.httpStatus, 200);
   const credentials = await runStatus({ ...env, ASC_API_KEY_P8_BASE64: 'PRIVATE_INVALID_KEY' }, () => assert.fail('must not fetch'));
   assert.equal(credentials.receipt.checkState, 'CREDENTIALS_INVALID');
+});
+
+test('diagnoses a rejected build query without exposing its URL or Apple error details', async () => {
+  let count = 0;
+  const result = await runStatus(env, async () => ++count === 1
+    ? new Response(JSON.stringify({ data: [app] }))
+    : new Response(JSON.stringify({ errors: [{ detail: 'PRIVATE_PROVIDER_DETAIL' }] }), { status: 400 }));
+  assert.equal(result.receipt.checkState, 'API_UNAVAILABLE');
+  assert.equal(result.receipt.failedEndpoint, 'BUILDS');
+  assert.equal(result.receipt.httpStatus, 400);
+  assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  assert.ok(!JSON.stringify(result).includes(app.id));
+});
+
+test('ignores external groups and follows bounded same-endpoint membership pagination', async () => {
+  const external = { ...group, id: 'external-group', attributes: { isInternalGroup: false } };
+  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
+    { data: [app] }, { data: [build] }, { data: detail }, { data: [external, group] },
+    { data: [], links: { next: `https://api.appstoreconnect.apple.com/v1/betaGroups/${group.id}/builds?cursor=synthetic` } },
+    { data: [build] },
+  ], (url, options, index) => {
+    if (index >= 4) assert.equal(url.pathname, `/v1/betaGroups/${group.id}/builds`);
+    if (index === 5) assert.equal(url.searchParams.get('cursor'), 'synthetic');
+  }) });
+  assert.deepEqual(result, expected);
+});
+
+test('refuses cross-origin pagination before sending a token to another host', async () => {
+  const result = await runStatus(env, responses([
+    { data: [app] }, { data: [build] }, { data: detail },
+    { data: [], links: { next: `https://untrusted.invalid/v1/apps/${app.id}/betaGroups` } },
+  ]));
+  assert.equal(result.receipt.checkState, 'INVALID_RESPONSE');
+  assert.equal(result.receipt.failedEndpoint, 'APP_BETA_GROUPS');
 });
 
 test('CLI emits and saves only the safe receipt on failure without printing supplied secret values', () => {
