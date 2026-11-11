@@ -1,0 +1,38 @@
+name: Verify native actions
+on:
+  push:
+    paths:
+      - modules/zorid-actions/ios/**
+      - src/actions/**
+      - src/domain/focus.ts
+      - src/features/focus-action*.ts
+      - src/native/focus*.ts
+      - scripts/ios/test-actions.swift
+      - scripts/ios/test-focus-actions.swift
+      - scripts/ios/test-pause-numeric.swift
+      - .github/workflows/native-actions.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actions:
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Compile the actual downloaded handler
+        run: bun scripts/build-actions.ts --check
+      - name: Verify atomic native actions and Focus lifecycle
+        run: |
+          swiftc modules/zorid-actions/ios/ZoridActionStore.swift modules/zorid-actions/ios/ZoridActionRuntime.swift scripts/ios/test-actions.swift -framework JavaScriptCore -lsqlite3 -o "$RUNNER_TEMP/zorid-action-checks"
+          "$RUNNER_TEMP/zorid-action-checks"
+          swiftc modules/zorid-actions/ios/ZoridActionStore.swift modules/zorid-actions/ios/ZoridActionRuntime.swift scripts/ios/test-focus-actions.swift -framework JavaScriptCore -lsqlite3 -o "$RUNNER_TEMP/zorid-focus-action-checks"
+          "$RUNNER_TEMP/zorid-focus-action-checks" build/actions/focus-control.txt
+      - name: Compare native record decoding with JavaScript JSON parsing
+        if: always()
+        run: |
+          swiftc modules/zorid-actions/ios/ZoridActionStore.swift modules/zorid-actions/ios/ZoridActionRuntime.swift scripts/ios/test-pause-numeric.swift -framework JavaScriptCore -lsqlite3 -o "$RUNNER_TEMP/zorid-pause-numeric-checks"
+          "$RUNNER_TEMP/zorid-pause-numeric-checks"
