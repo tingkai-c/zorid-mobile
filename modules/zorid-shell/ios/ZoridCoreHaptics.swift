@@ -156,7 +156,7 @@ final class ZoridCoreHaptics {
       case "dispose":
         try keys(command, ["type"])
         try entry.player.cancel()
-        entry.player.completionHandler = nil
+        entry.player.completionHandler = { _ in }
         players.removeValue(forKey: playerID)
       default: throw ZoridCoreHapticsError.invalidCommand
       }
@@ -234,8 +234,8 @@ final class ZoridCoreHaptics {
   }
 
   private func retireEngine() {
-    engine?.stoppedHandler = nil
-    engine?.resetHandler = nil
+    engine?.stoppedHandler = { _ in }
+    engine?.resetHandler = {}
     engine = nil
     engineID = UUID()
     engineCallbacks.advance()
@@ -249,7 +249,7 @@ final class ZoridCoreHaptics {
     guard !retired.isEmpty else { return }
     for id in retired {
       guard let entry = players.removeValue(forKey: id) else { continue }
-      entry.player.completionHandler = nil
+      entry.player.completionHandler = { _ in }
       try? entry.player.cancel()
     }
     generation += 1
@@ -261,8 +261,8 @@ final class ZoridCoreHaptics {
     engineState = reset ? "idle" : "stopped"
     stoppedReason = reason
     if reset { lastError = nil }
-    previous?.stoppedHandler = nil
-    previous?.resetHandler = nil
+    previous?.stoppedHandler = { _ in }
+    previous?.resetHandler = {}
     let stoppedIdentity = engineID
     previous?.stop(completionHandler: { [weak self] error in
       if let error {
@@ -275,7 +275,7 @@ final class ZoridCoreHaptics {
   }
 
   private func invalidatePlayers() {
-    for entry in players.values { entry.player.completionHandler = nil }
+    for entry in players.values { entry.player.completionHandler = { _ in } }
     players.removeAll()
     generation += 1
   }
