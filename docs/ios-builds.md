@@ -79,6 +79,8 @@ Create the `app.zorid.mobile` app record in App Store Connect and add the intend
 
 On the iPhone, open the TestFlight invitation with the invited Apple Account, then install Zorid from TestFlight. Beta builds expire after 90 days. Use the paired host for JavaScript releases and dispatch a new TestFlight build for native changes. See [Apple's internal testing setup](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/).
 
+Check processing and internal-group assignment without a Mac connection with `gh workflow run testflight-status.yml -f build=BUILD_NUMBER`. This read-only Ubuntu job uses the existing API secrets only in the runner step. Its downloadable JSON receipt contains the requested build number, fixed processing/audience/testing states and an internal-group membership flag. `BUILD_NOT_FOUND` means Apple has not listed that build yet; successful upload alone does not establish tester availability. The job never assigns builds or prints API identifiers, credentials or personal response fields.
+
 ## Installation and acceptance
 
 Download/extract the device artifact. Use Apple Configurator's Add → Apps → Choose from my Mac flow with the connected registered iPhone. Enable Developer Mode if iOS asks. No source checkout or CocoaPods is needed on the Mac.

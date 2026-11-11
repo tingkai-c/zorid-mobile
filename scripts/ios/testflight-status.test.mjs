@@ -1,0 +1,126 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
+import { Buffer } from 'node:buffer';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { checkTestFlightStatus, runStatus, validateBuildNumber } from './testflight-status.mjs';
+
+const app = { type: 'apps', id: '123456', attributes: { bundleId: 'app.zorid.mobile' } };
+const build = { type: 'builds', id: 'synthetic-build', attributes: {
+  version: '21', processingState: 'VALID', buildAudienceType: 'INTERNAL_ONLY',
+} };
+const detail = { type: 'buildBetaDetails', id: 'private-detail', attributes: { internalBuildState: 'IN_BETA_TESTING' } };
+const group = { type: 'betaGroups', id: 'private-group', attributes: { isInternalGroup: true, name: 'PRIVATE_GROUP_NAME' } };
+const expected = { buildNumber: '21', checkState: 'FOUND', processingState: 'VALID',
+  buildAudienceType: 'INTERNAL_ONLY', internalBuildState: 'IN_BETA_TESTING', internalGroupAssigned: true };
+const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+const env = { BUILD_NUMBER: '21', ASC_API_KEY_ID: 'synthetic-key-id', ASC_API_ISSUER_ID: 'synthetic-issuer',
+  ASC_API_KEY_P8_BASE64: Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64') };
+
+function responses(payloads, inspect = () => {}) {
+  let index = 0;
+  return async (url, options) => {
+    inspect(new URL(url), options, index);
+    assert.ok(index < payloads.length, 'unexpected API request');
+    return new Response(JSON.stringify(payloads[index++]), { status: 200 });
+  };
+}
+
+test('reads only the requested app, numeric iOS build and actual internal-group membership', async () => {
+  const fetchImpl = responses([{ data: [app] }, { data: [build] }, { data: detail }, { data: [group] }], (url, options, index) => {
+    assert.equal(url.origin, 'https://api.appstoreconnect.apple.com');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.redirect, 'error');
+    assert.equal(options.headers.Authorization, 'Bearer synthetic-token');
+    assert.ok(options.signal);
+    if (index === 0) assert.equal(url.searchParams.get('filter[bundleId]'), 'app.zorid.mobile');
+    if (index === 1) {
+      assert.equal(url.searchParams.get('filter[app]'), app.id);
+      assert.equal(url.searchParams.get('filter[version]'), '21');
+      assert.equal(url.searchParams.get('filter[preReleaseVersion.platform]'), 'IOS');
+    }
+    if (index === 2) assert.equal(url.pathname, `/v1/builds/${build.id}/buildBetaDetail`);
+    if (index === 3) {
+      assert.equal(url.searchParams.get('filter[app]'), app.id);
+      assert.equal(url.searchParams.get('filter[builds]'), build.id);
+      assert.equal(url.searchParams.get('filter[isInternalGroup]'), 'true');
+      assert.equal(url.searchParams.get('fields[betaGroups]'), 'isInternalGroup');
+    }
+  });
+  assert.deepEqual(await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic-token', fetchImpl }), expected);
+});
+
+test('reports pending processing and no assigned internal group without claiming distribution', async () => {
+  const pending = { ...build, attributes: { ...build.attributes, processingState: 'PROCESSING' } };
+  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
+    { data: [app] }, { data: [pending] }, { data: { ...detail, attributes: { internalBuildState: 'PROCESSING' } } }, { data: [] },
+  ]) });
+  assert.deepEqual(result, { ...expected, processingState: 'PROCESSING', internalBuildState: 'PROCESSING', internalGroupAssigned: false });
+});
+
+test('unknown provider states and personal response fields cannot enter the receipt', async () => {
+  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
+    { data: [app] }, { data: [{ ...build, attributes: { version: '21', processingState: 'PRIVATE_TOKEN', buildAudienceType: 'PRIVATE_TOKEN' } }] },
+    { data: { ...detail, attributes: { internalBuildState: 'PRIVATE_TOKEN' } } }, { data: [group] },
+  ]) });
+  assert.deepEqual(result, { ...expected, processingState: 'UNKNOWN', buildAudienceType: 'UNKNOWN', internalBuildState: 'UNKNOWN' });
+  assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  assert.ok(!JSON.stringify(result).includes(build.id));
+});
+
+test('a not-yet-listed build produces a safe receipt and no relationship queries', async () => {
+  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([{ data: [app] }, { data: [] }]) });
+  assert.deepEqual(result, { ...expected, checkState: 'BUILD_NOT_FOUND', processingState: 'UNKNOWN',
+    buildAudienceType: 'UNKNOWN', internalBuildState: 'UNKNOWN', internalGroupAssigned: false });
+});
+
+test('rejects invalid build numbers before using credentials or making requests', async () => {
+  for (const value of [undefined, '', '0', '-1', '21.0', ' 21', '21\n', '21;echo private', '1234567890', 21]) {
+    assert.throws(() => validateBuildNumber(value));
+    const result = await runStatus({ ...env, BUILD_NUMBER: value }, () => assert.fail('must not fetch'));
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.receipt.checkState, 'INVALID_BUILD_NUMBER');
+    assert.equal(result.receipt.buildNumber, null);
+  }
+});
+
+test('ambiguous builds and mismatched build versions fail rather than selecting another binary', async () => {
+  for (const [builds, state] of [[[build, build], 'AMBIGUOUS_BUILD'], [[{ ...build, attributes: { ...build.attributes, version: '22' } }], 'INVALID_RESPONSE']]) {
+    const result = await runStatus(env, responses([{ data: [app] }, { data: builds }]));
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.receipt.checkState, state);
+  }
+});
+
+test('authentication, access, network and malformed-response errors expose only fixed states', async () => {
+  for (const [status, state] of [[401, 'AUTHENTICATION_FAILED'], [403, 'ACCESS_DENIED'], [500, 'API_UNAVAILABLE']]) {
+    const result = await runStatus(env, async () => new Response('PRIVATE_RESPONSE_TOKEN', { status }));
+    assert.equal(result.receipt.checkState, state);
+    assert.equal(result.exitCode, 1);
+    assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  }
+  const network = await runStatus(env, async () => { throw new Error('PRIVATE_NETWORK_TOKEN'); });
+  assert.equal(network.receipt.checkState, 'NETWORK_FAILED');
+  const malformed = await runStatus(env, async () => new Response('PRIVATE_INVALID_JSON'));
+  assert.equal(malformed.receipt.checkState, 'INVALID_RESPONSE');
+  const credentials = await runStatus({ ...env, ASC_API_KEY_P8_BASE64: 'PRIVATE_INVALID_KEY' }, () => assert.fail('must not fetch'));
+  assert.equal(credentials.receipt.checkState, 'CREDENTIALS_INVALID');
+});
+
+test('CLI emits and saves only the safe receipt on failure without printing supplied secret values', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'zorid-status-test-'));
+  try {
+    const file = join(directory, 'receipt.json');
+    const result = spawnSync(process.execPath, ['scripts/ios/testflight-status.mjs'], { encoding: 'utf8',
+      env: { ...process.env, BUILD_NUMBER: 'invalid-PRIVATE_INPUT', ASC_API_KEY_P8_BASE64: 'PRIVATE_SECRET', STATUS_RECEIPT_PATH: file } });
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr, '');
+    const saved = JSON.parse(readFileSync(file, 'utf8'));
+    assert.deepEqual(JSON.parse(result.stdout), saved);
+    assert.equal(saved.checkState, 'INVALID_BUILD_NUMBER');
+    assert.ok(!JSON.stringify(saved).includes('PRIVATE'));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});

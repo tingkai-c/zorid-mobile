@@ -1,5 +1,16 @@
 # Foundation delivery evidence
 
+## Pause action investigation
+
+The phone reported “The app action failed; no changes were saved” when pausing. This identifies a JavaScript handler exception, rather than a post-commit widget refresh failure. The exact phone-side cause remains unconfirmed: the Mac was unreachable for diagnostics, and the button's location has not been confirmed.
+
+- [Pre-fix native reproduction](https://github.com/tingkai-c/zorid-mobile/actions/runs/43054097743): the original 73 native checks passed, then the actual compiled Focus handler rejected a fresh app-side revision with the same generic error. Raw decimal JSON passed through Foundation's number conversion produced a different JavaScript number. Nine of 4,028 synthetic timestamp cases differed. The diagnostic branch deliberately retains the previous runtime and must not be shipped.
+- [Corrected native checks](https://github.com/tingkai-c/zorid-mobile/actions/runs/43053834915): 99 action checks, the compiled Pause/Resume/Finish lifecycle, the new fresh-revision Pause regression, and all 4,028 numeric comparisons passed. Record reads now parse their original JSON in JavaScriptCore, matching JavaScript record semantics. Captured parser references prevent handler replacement of `JSON.parse` from changing record reads.
+- Handler exceptions retain bounded own error messages without invoking ordinary message getters or custom string conversion. Unsafe values use the generic fallback. Native capability errors retain precedence. Regression checks verify record/effect rollback and the absence of a receipt for failed actions.
+- All 82 JavaScript tests passed, including eight status-reporting tests, with 475 Bun assertions; typecheck, lint, generated-handler freshness and iOS export passed. Independent review found no material issue.
+
+The stock demo creates integer timestamps, including native action timestamps. The fractional-number defect is reproduced and fixed, but does not establish why this particular phone failed. The updated native error message is needed to distinguish a stale button from other handler failures on the device. The JavaScript action bundle remains `focus-actions-1`; its code has not changed.
+
 ## Widget storage and Lock Screen repair
 
 Commit `2508dd5` removes the legacy `UserDefaults.synchronize()` reload prerequisite. The [native reproduction](https://github.com/tingkai-c/zorid-mobile/actions/runs/43044485526) ran the actual extracted Swift method with real Foundation defaults: the timeline read back correctly, but a false legacy flush result raised `Shared widget storage is unavailable.` and skipped reload. The [corrected native regression](https://github.com/tingkai-c/zorid-mobile/actions/runs/43045681679) passes accepted writes and retains distinct failures for missing defaults and missing layouts. This proves that false-error path; it is not a captured trace of the user's phone.

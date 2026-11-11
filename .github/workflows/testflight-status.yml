@@ -1,0 +1,37 @@
+name: Check TestFlight status
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Numeric iOS build number
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify safe status reporting
+        run: node --test scripts/ios/testflight-status.test.mjs
+      - name: Read build status
+        env:
+          BUILD_NUMBER: ${{ inputs.build }}
+          STATUS_RECEIPT_PATH: ${{ runner.temp }}/testflight-status.json
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: node scripts/ios/testflight-status.mjs
+      - name: Retain safe status receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-status-${{ github.run_id }}
+          path: ${{ runner.temp }}/testflight-status.json
+          if-no-files-found: ignore
+          retention-days: 7
