@@ -184,15 +184,18 @@ struct ZoridShieldDocument: Codable {
   }
 }
 
-public enum ZoridShieldMatch {
-  public static func matches<App: Hashable, Category: Hashable>(mode: String,
-      application: App?, category: Category?, applications: Set<App>, categories: Set<Category>) -> Bool {
-    guard application != nil || category != nil else { return false }
-    switch mode {
-    case "allowlist": return application.map { !applications.contains($0) } ?? (category != nil)
-    case "blocklist": return application.map { applications.contains($0) } == true
-      || category.map { categories.contains($0) } == true
-    default: return false
+public enum ZoridShieldResolution {
+  // Configuration callbacks may include app+category while an action callback
+  // includes only one token. Resolve without either context so the visible
+  // button and its response always use the same policy-independent choice.
+  public static func resolve(_ activeStyles: [ZoridShieldStyle]) -> ZoridShieldStyle {
+    guard let first = activeStyles.first else { return .fallback }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    guard let canonical = try? encoder.encode(first) else { return .fallback }
+    for style in activeStyles.dropFirst() {
+      guard let candidate = try? encoder.encode(style), candidate == canonical else { return .fallback }
     }
+    return first
   }
 }

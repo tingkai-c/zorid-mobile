@@ -74,13 +74,25 @@ import Foundation
     let future = Data("{\"version\":2,\"style\":{}}".utf8)
     do { _ = try JSONDecoder().decode(ZoridShieldDocument.self, from: future); preconditionFailure("Unknown document version accepted") }
     catch { checks += 1 }
-    func matches(_ mode: String, _ application: Int?, _ category: String?) -> Bool {
-      ZoridShieldMatch.matches(mode: mode, application: application, category: category, applications: [1], categories: ["social"])
-    }
-    check(matches("blocklist", 1, nil)); check(!matches("blocklist", 2, nil))
-    check(matches("blocklist", 2, "social")); check(!matches("blocklist", 2, "work")); check(matches("blocklist", nil, "social"))
-    check(!matches("allowlist", 1, "social")); check(matches("allowlist", 2, "social")); check(matches("allowlist", nil, "social"))
-    check(!matches("allowlist", nil, nil)); check(!matches("unknown", 1, "social"))
+    // A category-only selection must keep its custom response for both the
+    // application configuration callback and category action callback. No token
+    // matching is involved in either call to this shared resolver.
+    let categoryStyle = try parse(["title": ["text": "Category policy", "color": "#FFFFFF"], "actions": ["primary": "defer"]])
+    let applicationConfiguration = ZoridShieldResolution.resolve([categoryStyle])
+    let categoryAction = ZoridShieldResolution.resolve([categoryStyle])
+    check(applicationConfiguration.title?.text == "Category policy")
+    check(applicationConfiguration.action(secondary: false) == "defer" && categoryAction.action(secondary: false) == "defer")
+    // An allowlist that permits X and a category blocklist shielding X cannot
+    // reveal a reliable owner through partial callback tokens. Differing styles
+    // therefore produce system defaults for both callback contexts.
+    let allowlistStyle = try parse(["actions": ["primary": "openApp"]])
+    let ambiguousConfiguration = ZoridShieldResolution.resolve([allowlistStyle, categoryStyle])
+    let ambiguousAction = ZoridShieldResolution.resolve([allowlistStyle, categoryStyle])
+    check(ambiguousConfiguration.title == nil && ambiguousAction.title == nil)
+    check(ambiguousConfiguration.action(secondary: false) == "close" && ambiguousAction.action(secondary: false) == "close")
+    check(ZoridShieldResolution.resolve([categoryStyle, categoryStyle]).action(secondary: false) == "defer")
+    check(ZoridShieldResolution.resolve([categoryStyle, roundTrip.style]).title == nil)
+    check(ZoridShieldResolution.resolve([]).action(secondary: false) == "close")
     print("Screen Time shield configuration checks passed: \(checks)")
   }
 }

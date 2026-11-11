@@ -170,12 +170,12 @@ public final class ZoridScreenTimeController {
     }
   }
 
-  // The system does not identify which ManagedSettingsStore caused a shield.
-  // Choose the first matching active tool in stable app-ID order. No app names,
-  // bundle IDs or opaque tokens are returned to JavaScript or persisted here.
-  public func shieldStyle(application: ApplicationToken? = nil, category: ActivityCategoryToken? = nil) -> ZoridShieldStyle {
-    guard application != nil || category != nil,
-          let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.group) else {
+  // Callback token context differs between configuration and action delegates;
+  // neither identifies the ManagedSettingsStore that caused the shield. Resolve
+  // one shared appearance from the entire active snapshot, without guessing an
+  // owner from the provided application/category. Restrictions remain unchanged.
+  public func shieldStyle() -> ZoridShieldStyle {
+    guard let root = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.group) else {
       return .fallback
     }
     let directory = root.appendingPathComponent("ScreenTime", isDirectory: true)
@@ -189,17 +189,18 @@ public final class ZoridScreenTimeController {
     defer { flock(descriptor, LOCK_UN) }
     guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return .fallback }
     let now = Date().timeIntervalSince1970 * 1000
+    var styles: [ZoridShieldStyle] = []
     for file in files.filter({ $0.pathExtension == "json" }).sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-      guard (try? ZoridScreenTimePlan.identifier(file.deletingPathExtension().lastPathComponent)) != nil,
-            let data = try? Data(contentsOf: file),
-            let state = try? JSONDecoder().decode(ZoridScreenTimeState.self, from: data),
+      guard (try? ZoridScreenTimePlan.identifier(file.deletingPathExtension().lastPathComponent)) != nil else { continue }
+      // A partial snapshot cannot establish that a style is unambiguous.
+      guard let data = try? Data(contentsOf: file),
+            let state = try? JSONDecoder().decode(ZoridScreenTimeState.self, from: data) else { return .fallback }
+      guard
             let active = state.active, active.endsAt > now,
             let policy = state.policies.first(where: { $0.id == active.policyId }) else { continue }
-      guard ZoridShieldMatch.matches(mode: policy.mode, application: application, category: category,
-        applications: policy.selection.applicationTokens, categories: policy.selection.categoryTokens) else { continue }
-      return policy.shield?.style ?? .fallback
+      styles.append(policy.shield?.style ?? .fallback)
     }
-    return .fallback
+    return ZoridShieldResolution.resolve(styles)
   }
 
   public func deletePolicy(appId: String, policyId: String) throws {

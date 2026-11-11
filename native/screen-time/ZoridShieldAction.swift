@@ -3,11 +3,11 @@ import ManagedSettings
 final class ZoridShieldAction: ShieldActionDelegate {
   override func handle(action: ShieldAction, for application: ApplicationToken,
                        completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    completionHandler(response(action: action, style: ZoridScreenTimeController.shared.shieldStyle(application: application)))
+    completionHandler(response(action: action, style: ZoridScreenTimeController.shared.shieldStyle()))
   }
   override func handle(action: ShieldAction, for category: ActivityCategoryToken,
                        completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    completionHandler(response(action: action, style: ZoridScreenTimeController.shared.shieldStyle(category: category)))
+    completionHandler(response(action: action, style: ZoridScreenTimeController.shared.shieldStyle()))
   }
   override func handle(action: ShieldAction, for webDomain: WebDomainToken,
                        completionHandler: @escaping (ShieldActionResponse) -> Void) {

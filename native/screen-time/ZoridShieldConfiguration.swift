@@ -4,10 +4,10 @@ import UIKit
 
 final class ZoridShieldConfiguration: ShieldConfigurationDataSource {
   override func configuration(shielding application: Application) -> ShieldConfiguration {
-    render(ZoridScreenTimeController.shared.shieldStyle(application: application.token))
+    render(ZoridScreenTimeController.shared.shieldStyle())
   }
   override func configuration(shielding application: Application, in category: ActivityCategory) -> ShieldConfiguration {
-    render(ZoridScreenTimeController.shared.shieldStyle(application: application.token, category: category.token))
+    render(ZoridScreenTimeController.shared.shieldStyle())
   }
   override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration { render(.fallback) }
   override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory) -> ShieldConfiguration { render(.fallback) }
