@@ -16,7 +16,7 @@ const detail = { type: 'buildBetaDetails', id: 'private-detail', attributes: { i
 const group = { type: 'betaGroups', id: 'private-group', attributes: { isInternalGroup: true, name: 'PRIVATE_GROUP_NAME' } };
 const expected = { buildNumber: '21', checkState: 'FOUND', processingState: 'VALID',
   buildAudienceType: 'INTERNAL_ONLY', internalBuildState: 'IN_BETA_TESTING', internalGroupAssigned: true,
-  failedEndpoint: null, httpStatus: null };
+  uploadState: 'UNKNOWN', failedEndpoint: null, httpStatus: null };
 const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const env = { BUILD_NUMBER: '21', ASC_API_KEY_ID: 'synthetic-key-id', ASC_API_ISSUER_ID: 'synthetic-issuer',
   ASC_API_KEY_P8_BASE64: Buffer.from(privateKey.export({ type: 'pkcs8', format: 'pem' })).toString('base64') };
@@ -76,10 +76,71 @@ test('unknown provider states and personal response fields cannot enter the rece
   assert.ok(!JSON.stringify(result).includes(build.id));
 });
 
-test('a not-yet-listed build produces a safe receipt and no relationship queries', async () => {
-  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([{ data: [app] }, { data: [] }]) });
+test('a build absent from both listings stays unknown and makes no relationship queries', async () => {
+  const result = await checkTestFlightStatus({ buildNumber: '21', token: 'synthetic', fetchImpl: responses([
+    { data: [app] }, { data: [] }, { data: [] },
+  ]) });
   assert.deepEqual(result, { ...expected, checkState: 'BUILD_NOT_FOUND', processingState: 'UNKNOWN',
     buildAudienceType: 'UNKNOWN', internalBuildState: 'UNKNOWN', internalGroupAssigned: false });
+});
+
+test('missing builds use the documented nested upload state without exposing provider diagnostics', async () => {
+  for (const uploadState of ['AWAITING_UPLOAD', 'PROCESSING', 'COMPLETE', 'FAILED']) {
+    const result = await runStatus(env, responses([
+      { data: [app] }, { data: [] },
+      { data: [{ type: 'buildUploads', id: 'PRIVATE_UPLOAD_ID', attributes: { cfBundleVersion: '21',
+        state: { state: uploadState, errors: [{ detail: 'PRIVATE_PROVIDER_ERROR' }], warnings: ['PRIVATE_WARNING'], infos: ['PRIVATE_INFO'] } } }] },
+    ], (url, options, index) => {
+      if (index === 2) {
+        assert.equal(url.pathname, `/v1/apps/${app.id}/buildUploads`);
+        assert.deepEqual([...url.searchParams], [['filter[cfBundleVersion]', '21'], ['limit', '3']]);
+      }
+    }));
+    assert.equal(result.receipt.uploadState, uploadState);
+    assert.equal(result.receipt.checkState, uploadState === 'FAILED' ? 'UPLOAD_FAILED' : 'BUILD_NOT_FOUND');
+    assert.equal(result.exitCode, uploadState === 'FAILED' ? 1 : 0);
+    assert.equal(result.receipt.processingState, 'UNKNOWN');
+    assert.equal(result.receipt.internalGroupAssigned, false);
+    assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  }
+});
+
+test('unknown or incorrectly flattened upload states never become provider-controlled receipt values', async () => {
+  for (const state of [{ state: 'PRIVATE_UNKNOWN_STATE' }, 'PROCESSING', null]) {
+    const result = await runStatus(env, responses([
+      { data: [app] }, { data: [] }, { data: [{ type: 'buildUploads', attributes: { cfBundleVersion: '21', state } }] },
+    ]));
+    assert.equal(result.receipt.uploadState, 'UNKNOWN');
+    assert.equal(result.exitCode, 0);
+    assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  }
+});
+
+test('mismatched or ambiguous uploads fail safely instead of diagnosing a different build', async () => {
+  const upload = { type: 'buildUploads', attributes: { cfBundleVersion: '21', state: { state: 'PROCESSING' } } };
+  for (const [uploads, checkState] of [
+    [[upload, upload], 'AMBIGUOUS_UPLOAD'],
+    [[{ ...upload, attributes: { ...upload.attributes, cfBundleVersion: '22' } }], 'INVALID_RESPONSE'],
+  ]) {
+    const result = await runStatus(env, responses([{ data: [app] }, { data: [] }, { data: uploads }]));
+    assert.equal(result.receipt.checkState, checkState);
+    assert.equal(result.receipt.failedEndpoint, 'APP_BUILD_UPLOADS');
+    assert.equal(result.receipt.uploadState, 'UNKNOWN');
+    assert.equal(result.exitCode, 1);
+  }
+});
+
+test('an unsupported upload query reports only its endpoint and HTTP status', async () => {
+  let count = 0;
+  const result = await runStatus(env, async () => {
+    if (++count === 1) return new Response(JSON.stringify({ data: [app] }));
+    if (count === 2) return new Response(JSON.stringify({ data: [] }));
+    return new Response('PRIVATE_APPLE_API_ERROR', { status: 400 });
+  });
+  assert.equal(result.receipt.checkState, 'API_UNAVAILABLE');
+  assert.equal(result.receipt.failedEndpoint, 'APP_BUILD_UPLOADS');
+  assert.equal(result.receipt.httpStatus, 400);
+  assert.ok(!JSON.stringify(result).includes('PRIVATE'));
 });
 
 test('rejects invalid build numbers before using credentials or making requests', async () => {

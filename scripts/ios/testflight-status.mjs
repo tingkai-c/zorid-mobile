@@ -10,11 +10,12 @@ const ORIGIN = 'https://api.appstoreconnect.apple.com';
 const BUNDLE_ID = 'app.zorid.mobile';
 const PROCESSING = ['PROCESSING', 'FAILED', 'INVALID', 'VALID'];
 const AUDIENCE = ['INTERNAL_ONLY', 'APP_STORE_ELIGIBLE'];
+const UPLOAD = ['AWAITING_UPLOAD', 'PROCESSING', 'FAILED', 'COMPLETE'];
 const INTERNAL = ['PROCESSING', 'PROCESSING_EXCEPTION', 'MISSING_EXPORT_COMPLIANCE',
   'READY_FOR_BETA_TESTING', 'IN_BETA_TESTING', 'EXPIRED', 'IN_EXPORT_COMPLIANCE_REVIEW'];
 const FAILURE_STATES = ['INVALID_BUILD_NUMBER', 'CREDENTIALS_INVALID', 'AUTHENTICATION_FAILED',
-  'ACCESS_DENIED', 'API_UNAVAILABLE', 'NETWORK_FAILED', 'INVALID_RESPONSE', 'APP_NOT_FOUND', 'AMBIGUOUS_BUILD'];
-const ENDPOINTS = ['APPS', 'BUILDS', 'BUILD_BETA_DETAIL', 'APP_BETA_GROUPS', 'GROUP_BUILDS'];
+  'ACCESS_DENIED', 'API_UNAVAILABLE', 'NETWORK_FAILED', 'INVALID_RESPONSE', 'APP_NOT_FOUND', 'AMBIGUOUS_BUILD', 'AMBIGUOUS_UPLOAD'];
+const ENDPOINTS = ['APPS', 'BUILDS', 'BUILD_BETA_DETAIL', 'APP_BETA_GROUPS', 'GROUP_BUILDS', 'APP_BUILD_UPLOADS'];
 
 class StatusFailure extends Error {
   constructor(state, endpoint = null, httpStatus = null) {
@@ -31,7 +32,7 @@ export function validateBuildNumber(value) {
 
 function receipt(buildNumber, checkState) {
   return { buildNumber, checkState, processingState: 'UNKNOWN', buildAudienceType: 'UNKNOWN',
-    internalBuildState: 'UNKNOWN', internalGroupAssigned: false, failedEndpoint: null, httpStatus: null };
+    internalBuildState: 'UNKNOWN', internalGroupAssigned: false, uploadState: 'UNKNOWN', failedEndpoint: null, httpStatus: null };
 }
 
 function identifier(value) {
@@ -92,7 +93,18 @@ export async function checkTestFlightStatus({ buildNumber, token, fetchImpl = fe
   const builds = collection(await get('BUILDS', '/v1/builds', {
     'filter[app]': appId, 'filter[version]': buildNumber, limit: '3',
   }), 'builds');
-  if (builds.length === 0) return receipt(buildNumber, 'BUILD_NOT_FOUND');
+  if (builds.length === 0) {
+    const uploads = collection(await get('APP_BUILD_UPLOADS', `/v1/apps/${encodeURIComponent(appId)}/buildUploads`, {
+      'filter[cfBundleVersion]': buildNumber, limit: '3',
+    }), 'buildUploads');
+    if (uploads.length > 1) throw new StatusFailure('AMBIGUOUS_UPLOAD', 'APP_BUILD_UPLOADS');
+    const attributes = uploads[0]?.attributes;
+    if (attributes?.cfBundleVersion !== undefined && attributes.cfBundleVersion !== buildNumber) {
+      throw new StatusFailure('INVALID_RESPONSE', 'APP_BUILD_UPLOADS');
+    }
+    const uploadState = safeState(attributes?.state?.state, UPLOAD);
+    return { ...receipt(buildNumber, uploadState === 'FAILED' ? 'UPLOAD_FAILED' : 'BUILD_NOT_FOUND'), uploadState };
+  }
   if (builds.length !== 1) throw new StatusFailure('AMBIGUOUS_BUILD');
   const build = builds[0], buildId = identifier(build.id);
   if (build.attributes?.version !== buildNumber) throw new StatusFailure('INVALID_RESPONSE');
@@ -109,7 +121,7 @@ export async function checkTestFlightStatus({ buildNumber, token, fetchImpl = fe
     processingState: safeState(build.attributes.processingState, PROCESSING),
     buildAudienceType: safeState(build.attributes.buildAudienceType, AUDIENCE),
     internalBuildState: safeState(detail.data.attributes?.internalBuildState, INTERNAL),
-    internalGroupAssigned, failedEndpoint: null, httpStatus: null };
+    internalGroupAssigned, uploadState: 'UNKNOWN', failedEndpoint: null, httpStatus: null };
 }
 
 export async function runStatus(env = process.env, fetchImpl = fetch) {
@@ -122,7 +134,8 @@ export async function runStatus(env = process.env, fetchImpl = fetch) {
     let token;
     try { token = makeToken(Buffer.from(encodedKey, 'base64'), env.ASC_API_KEY_ID, env.ASC_API_ISSUER_ID); }
     catch { throw new StatusFailure('CREDENTIALS_INVALID'); }
-    return { receipt: await checkTestFlightStatus({ buildNumber, token, fetchImpl }), exitCode: 0 };
+    const safeReceipt = await checkTestFlightStatus({ buildNumber, token, fetchImpl });
+    return { receipt: safeReceipt, exitCode: safeReceipt.checkState === 'UPLOAD_FAILED' ? 1 : 0 };
   } catch (error) {
     const state = error instanceof StatusFailure && FAILURE_STATES.includes(error.state) ? error.state : 'API_UNAVAILABLE';
     const safeReceipt = receipt(buildNumber, state);
