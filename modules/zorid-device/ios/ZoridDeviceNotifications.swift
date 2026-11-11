@@ -281,7 +281,11 @@ final class ZoridDeviceNotifications: NSObject, UNUserNotificationCenterDelegate
       ? String(content.categoryIdentifier.dropFirst(categoryNamespace(appId).count)) : ""
     var result: [String: Any] = ["id": payload.id, "title": content.title, "subtitle": content.subtitle,
       "body": content.body, "categoryId": category, "data": payload.data]
-    if let at = request.trigger?.nextTriggerDate() { result["nextTriggerAt"] = at.timeIntervalSince1970 * 1000 }
+    let next: Date?
+    if let trigger = request.trigger as? UNTimeIntervalNotificationTrigger { next = trigger.nextTriggerDate() }
+    else if let trigger = request.trigger as? UNCalendarNotificationTrigger { next = trigger.nextTriggerDate() }
+    else { next = nil }
+    if let next { result["nextTriggerAt"] = next.timeIntervalSince1970 * 1000 }
     return result
   }
 
