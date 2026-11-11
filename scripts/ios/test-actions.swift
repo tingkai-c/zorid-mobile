@@ -199,6 +199,19 @@ struct ZoridActionChecks {
     try fails("event not emitted for rollback") { _ = try invoke(runtime) }
     try check(eventCounter.count == 1, "rollback emits no records change event")
 
+    try install(runtime, "function(args,sdk){for(var i=0;i<10;i++)sdk.surfaces.publish({widget:'DemoWidget',props:{index:i}});}", app: "pagination")
+    _ = try invoke(runtime, app: "pagination")
+    let firstPage = try array(runtime.pendingEffects(appId: "pagination"))
+    try check(firstPage.count == 8, "default surface page is bounded at eight effects")
+    let firstCursor = (firstPage.last!["sequence"] as! NSNumber).int64Value
+    let secondPage = try array(runtime.pendingEffects(appId: "pagination", afterSequence: firstCursor))
+    try check(secondPage.count == 2, "native cursor reaches effects behind a deferred first page")
+    try check((secondPage.first!["sequence"] as! NSNumber).int64Value > firstCursor, "cursor page strictly follows last sequence")
+    let secondCursor = (secondPage.last!["sequence"] as! NSNumber).int64Value
+    try check(try array(runtime.pendingEffects(appId: "pagination", afterSequence: secondCursor)).isEmpty, "cursor page ends without repeating deferred effects")
+    try check(try array(runtime.pendingEffects(appId: "pagination")).count == 8, "cursor reading does not acknowledge earlier effects")
+    try fails("negative effect cursor rejected") { _ = try runtime.pendingEffects(appId: "pagination", afterSequence: -1) }
+
     let fixedSource = "function(){return 'stable';}"
     try install(runtime, fixedSource, version: "immutable-version")
     try install(runtime, fixedSource, version: "immutable-version")

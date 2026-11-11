@@ -5,7 +5,7 @@ import ActivityKit
 import ZoridActions
 
 private enum ZoridSurfaceError: LocalizedError {
-  case invalidTarget, invalidEffect, unavailableStorage, busy, activityRequiresApp, oversizedActivity, morePending, liveActivitiesUnavailable
+  case invalidTarget, invalidEffect, unavailableStorage, busy, activityRequiresApp, oversizedActivity, liveActivitiesUnavailable
 
   var errorDescription: String? {
     switch self {
@@ -15,7 +15,6 @@ private enum ZoridSurfaceError: LocalizedError {
     case .busy: return "Another surface update is in progress. Please try again."
     case .activityRequiresApp: return "Your change is saved. Open Zorid to refresh the Live Activity."
     case .oversizedActivity: return "The Live Activity update exceeds its data limit."
-    case .morePending: return "Your changes are saved. More surface updates remain; refresh again."
     case .liveActivitiesUnavailable: return "Live Activities are disabled. Your changes are saved."
     }
   }
@@ -61,72 +60,40 @@ actor ZoridActionSurfaces {
   }
 
   private func flushPending(appId: String, directory: URL) async throws -> Int {
-    // Re-read only after obtaining the cross-process lock. An old pending activity
-    // effect must not overwrite a newer widget-only update that was already applied.
     let checkpointURL = directory.appendingPathComponent("zorid-surface-checkpoints.json")
-    var checkpoints: [String: Int64] = [:]
+    let checkpoints: [String: Int64]
     if FileManager.default.fileExists(atPath: checkpointURL.path) {
       checkpoints = try JSONDecoder().decode([String: Int64].self, from: Data(contentsOf: checkpointURL))
-    }
-    var count = 0
-    for _ in 0..<4 {
-      let encoded = try ZoridActionRuntime.shared.pendingEffects(appId: appId)
-      guard let data = encoded.data(using: .utf8),
-            let effects = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-        throw ZoridSurfaceError.invalidEffect
-      }
-      if effects.isEmpty { return count }
-      var deferredActivity = false
-      for effect in effects {
-        guard let id = effect["id"] as? String,
-              effect["appId"] as? String == appId,
-              let sequenceNumber = effect["sequence"] as? NSNumber else {
+    } else { checkpoints = [:] }
+    return try await ZoridSurfaceEffectQueue.flush(
+      appId: appId, initialCheckpoints: checkpoints,
+      fetch: { cursor in
+        let encoded = try ZoridActionRuntime.shared.pendingEffects(appId: appId, afterSequence: cursor)
+        guard let data = encoded.data(using: .utf8),
+              let effects = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
           throw ZoridSurfaceError.invalidEffect
         }
-        let sequence = sequenceNumber.int64Value
-        guard sequence > 0, let props = effect["props"] as? [String: Any] else {
-          throw ZoridSurfaceError.invalidEffect
+        return effects
+      },
+      applyWidget: { effect in
+        guard let widget = effect.widget,
+              let props = effect.payload["props"] as? [String: Any] else { throw ZoridSurfaceError.invalidEffect }
+        try self.updateWidget(name: widget, props: props, timeline: effect.payload["timeline"])
+      },
+      applyActivity: { effect in
+        guard Bundle.main.bundleURL.pathExtension != "appex" else {
+          throw ZoridSurfaceError.activityRequiresApp
         }
-        var complete = true
-        if let widget = effect["widget"] as? String {
-          let key = "widget:\(widget)"
-          if sequence > (checkpoints[key] ?? 0) {
-            try updateWidget(name: widget, props: props, timeline: effect["timeline"])
-            checkpoints[key] = sequence
-            try saveCheckpoints(checkpoints, to: checkpointURL)
-          }
-        }
-        if let activity = effect["activity"] as? String {
-          let key = "activity:\(activity)"
-          if sequence > (checkpoints[key] ?? 0) {
-            if Bundle.main.bundleURL.pathExtension == "appex" {
-              // ActivityKit mutations execute from the containing app, including a
-              // LiveActivityIntent. Preserve the effect until that context is available.
-              complete = false
-              deferredActivity = true
-            } else {
-              try await updateActivity(name: activity, props: props, end: effect["endActivity"] as? Bool ?? false,
-                                       staleAt: (effect["staleAt"] as? NSNumber)?.doubleValue,
-                                       start: effect["startActivity"] as? Bool ?? false, url: effect["url"] as? String)
-              checkpoints[key] = sequence
-              try saveCheckpoints(checkpoints, to: checkpointURL)
-            }
-          }
-        }
-        if complete {
-          try ZoridActionRuntime.shared.acknowledgeEffects(ids: [id])
-          count += 1
-        }
-      }
-      if deferredActivity { throw ZoridSurfaceError.activityRequiresApp }
-    }
-    let remaining = try ZoridActionRuntime.shared.pendingEffects(appId: appId)
-    guard let remainingData = remaining.data(using: .utf8),
-          let remainingEffects = try JSONSerialization.jsonObject(with: remainingData) as? [[String: Any]] else {
-      throw ZoridSurfaceError.invalidEffect
-    }
-    if !remainingEffects.isEmpty { throw ZoridSurfaceError.morePending }
-    return count
+        guard let activity = effect.activity,
+              let props = effect.payload["props"] as? [String: Any] else { throw ZoridSurfaceError.invalidEffect }
+        try await self.updateActivity(name: activity, props: props,
+          end: effect.payload["endActivity"] as? Bool ?? false,
+          staleAt: (effect.payload["staleAt"] as? NSNumber)?.doubleValue,
+          start: effect.payload["startActivity"] as? Bool ?? false, url: effect.payload["url"] as? String)
+      },
+      saveCheckpoints: { try self.saveCheckpoints($0, to: checkpointURL) },
+      acknowledge: { try ZoridActionRuntime.shared.acknowledgeEffects(ids: $0) }
+    )
   }
 
   private func updateWidget(name: String, props: [String: Any], timeline value: Any?) throws {

@@ -94,9 +94,10 @@ public final class ZoridActionRuntime {
 
   public static let recordsChangedNotification = Notification.Name("ZoridActionRecordsChanged")
 
-  public func pendingEffects(appId: String) throws -> String {
+  public func pendingEffects(appId: String, afterSequence: Int64 = 0) throws -> String {
     try actionIdentifier(appId, maximum: 64)
-    return try actionJSON(effects(store.connect(), appId: appId))
+    guard afterSequence >= 0 else { throw ZoridActionError("Invalid surface effect cursor.") }
+    return try actionJSON(effects(store.connect(), appId: appId, afterSequence: afterSequence))
   }
 
   public func acknowledgeEffects(ids: [String]) throws {
@@ -129,11 +130,12 @@ public final class ZoridActionRuntime {
     }
   }
 
-  private func effects(_ database: ZoridActionConnection, appId: String, invocationId: String? = nil) throws -> [[String: Any]] {
+  private func effects(_ database: ZoridActionConnection, appId: String, invocationId: String? = nil, afterSequence: Int64 = 0) throws -> [[String: Any]] {
     let query = invocationId == nil
-      ? "SELECT id,sequence,payload FROM zorid_action_effects WHERE app_id=? ORDER BY sequence LIMIT 8"
+      ? "SELECT id,sequence,payload FROM zorid_action_effects WHERE app_id=? AND sequence>? ORDER BY sequence LIMIT 8"
       : "SELECT id,sequence,payload FROM zorid_action_effects WHERE app_id=? AND invocation_id=? ORDER BY sequence"
-    return try database.rows(query, invocationId.map { [appId, $0] } ?? [appId]).map { row in
+    let parameters: [Any] = invocationId.map { [appId, $0] as [Any] } ?? [appId, afterSequence]
+    return try database.rows(query, parameters).map { row in
       guard var effect = try actionParse(row["payload"] as! String) as? [String: Any] else { throw ZoridActionError("Invalid stored surface effect.") }
       effect["id"] = row["id"]!
       effect["appId"] = appId

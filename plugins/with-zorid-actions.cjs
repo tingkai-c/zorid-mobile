@@ -118,9 +118,10 @@ async function patchExpoWidgets(projectRoot) {
     const destination = path.join(widgetsRoot, file);
     return [destination, patch(await fs.readFile(destination, 'utf8'))];
   }));
-  const adapter = await fs.readFile(path.join(projectRoot, 'native/actions/ZoridActionSurfaces.swift'), 'utf8');
+  const adapters = await Promise.all(['ZoridActionSurfaces.swift', 'ZoridSurfaceEffectQueue.swift'].map(async (file) =>
+    [path.join(widgetsRoot, 'ios/Widgets', file), await fs.readFile(path.join(projectRoot, 'native/actions', file), 'utf8')]));
   for (const [destination, output] of outputs) await fs.writeFile(destination, output);
-  await fs.writeFile(path.join(widgetsRoot, 'ios/Widgets/ZoridActionSurfaces.swift'), adapter);
+  for (const [destination, output] of adapters) await fs.writeFile(destination, output);
 }
 
 function withZoridActions(config) {
