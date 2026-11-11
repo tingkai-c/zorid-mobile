@@ -1,0 +1,26 @@
+name: Check Screen Time signing access
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  profiles:
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify safe profile reporting
+        run: python3 scripts/ios/test-screen-time-profiles.py
+      - name: Inspect runner-only TestFlight profiles
+        env:
+          IOS_APP_STORE_PROFILES_ZIP_BASE64: ${{ secrets.IOS_APP_STORE_PROFILES_ZIP_BASE64 }}
+          SCREEN_TIME_PROFILE_RECEIPT_PATH: ${{ runner.temp }}/screen-time-profiles.json
+        run: python3 scripts/ios/screen-time-profiles.py
+      - name: Retain capability flags only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screen-time-profiles-${{ github.run_id }}
+          path: ${{ runner.temp }}/screen-time-profiles.json
+          if-no-files-found: ignore
+          retention-days: 7
