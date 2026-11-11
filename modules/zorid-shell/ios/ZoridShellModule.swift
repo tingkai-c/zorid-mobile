@@ -15,6 +15,7 @@ public final class ZoridShellModule: Module {
     }
     OnDestroy {
       NotificationCenter.default.removeObserver(self)
+      DispatchQueue.main.async { ZoridHaptics.shared.reset() }
     }
 
     AsyncFunction("setQuickActions") { (appId: String, json: String) in
@@ -30,6 +31,25 @@ public final class ZoridShellModule: Module {
 
     AsyncFunction("openSettings") { () -> Bool in
       ZoridShellCoordinator.shared.openSettings()
+    }.runOnQueue(.main)
+
+    AsyncFunction("hapticsStatus") { () -> String in
+      try ZoridHaptics.shared.status()
+    }.runOnQueue(.main)
+    AsyncFunction("impact") { (style: String, intensity: Double?, pointJSON: String?) in
+      try ZoridHaptics.shared.impact(style: style, intensity: intensity, pointJSON: pointJSON)
+    }.runOnQueue(.main)
+    AsyncFunction("selection") { (pointJSON: String?) in
+      try ZoridHaptics.shared.selection(pointJSON: pointJSON)
+    }.runOnQueue(.main)
+    AsyncFunction("notification") { (type: String, pointJSON: String?) in
+      try ZoridHaptics.shared.notification(type: type, pointJSON: pointJSON)
+    }.runOnQueue(.main)
+    AsyncFunction("prepareHaptics") { (kind: String, style: String?) in
+      try ZoridHaptics.shared.prepare(kind: kind, style: style)
+    }.runOnQueue(.main)
+    AsyncFunction("resetHaptics") {
+      ZoridHaptics.shared.reset()
     }.runOnQueue(.main)
   }
 

@@ -17,6 +17,6 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.dependency 'EXUpdates'
   s.source_files = '**/*.{h,m,swift}'
-  s.frameworks = 'UIKit', 'SwiftUI', 'AVFoundation', 'CoreMotion', 'Security'
+  s.frameworks = 'UIKit', 'SwiftUI', 'AVFoundation', 'CoreMotion', 'Security', 'CoreHaptics'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

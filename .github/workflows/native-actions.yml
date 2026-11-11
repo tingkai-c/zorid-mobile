@@ -5,6 +5,7 @@ on:
       - modules/zorid-actions/ios/**
       - modules/zorid-screen-time/**
       - native/screen-time/**
+      - modules/zorid-shell/ios/ZoridHaptics.swift
       - native/actions/ZoridSurfaceEffectQueue.swift
       - scripts/ios/test-surface-effects.swift
       - src/actions/**
@@ -46,6 +47,7 @@ jobs:
           "$RUNNER_TEMP/zorid-shield-checks"
           sdk_path="$(xcrun --sdk iphonesimulator --show-sdk-path)"
           swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/ios/ZoridScreenTimeShield.swift modules/zorid-screen-time/ios/ZoridScreenTimeController.swift native/screen-time/*.swift
+          swiftc -sdk "$sdk_path" -target arm64-apple-ios16.4-simulator -typecheck modules/zorid-shell/ios/ZoridHaptics.swift
       - name: Compare native record decoding with JavaScript JSON parsing
         if: always()
         run: |
