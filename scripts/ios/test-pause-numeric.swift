@@ -67,11 +67,12 @@ struct PauseNumericChecks {
       ])
       let response = try actionParse(runtime.dispatch(request)) as! [String: Any]
       let mismatches = response["result"] as! [[String: Any]]
-      for mismatch in mismatches { print(try actionJSON(mismatch)) }
+      for mismatch in mismatches { fputs(try actionJSON(mismatch) + "\n", stderr) }
       mismatchCount += mismatches.count
     }
     guard mismatchCount == 0 else {
-      throw ZoridActionError("Native numeric bridge disagreed with JSON.parse for \(mismatchCount) synthetic focus records.")
+      fputs("Native numeric bridge disagreed with JSON.parse for \(mismatchCount) synthetic focus records.\n", stderr)
+      exit(1)
     }
     print("Native numeric bridge and JSON.parse agree for \(tokens.count) synthetic focus records")
   }

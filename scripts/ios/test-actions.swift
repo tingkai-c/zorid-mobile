@@ -16,6 +16,11 @@ struct ZoridActionChecks {
     throw ZoridActionError("Expected failure: \(message)")
   }
 
+  static func failureMessage(_ body: () throws -> Void) throws -> String {
+    do { try body() } catch { return error.localizedDescription }
+    throw ZoridActionError("Expected an action failure")
+  }
+
   static func encode(_ value: Any) throws -> String { try actionJSON(value) }
   static func object(_ json: String) throws -> [String: Any] { try actionParse(json) as! [String: Any] }
   static func array(_ json: String) throws -> [[String: Any]] { try actionParse(json) as! [[String: Any]] }
@@ -91,6 +96,49 @@ struct ZoridActionChecks {
     try check((try invoke(runtime)["result"] as! [String: Any])["count"] as? Int == 1, "failed action records rolled back")
     _ = try invoke(runtime, id: "rollback")
     try check(true, "failed invocation can retry because no receipt committed")
+
+    let failureDatabase = try ZoridActionConnection(url: shared.appendingPathComponent("zorid.db"))
+    let actionableMessage = "This focus button is outdated. Refresh the session."
+    try install(runtime, """
+      function(args,sdk){
+        sdk.records.put('items','failed-reason',{count:900});
+        sdk.surfaces.publish({widget:'DemoWidget',props:{count:900}});
+        throw new Error('This focus button is outdated. Refresh the session.');
+      }
+      """)
+    let actionableFailure = try failureMessage { _ = try invoke(runtime, id: "actionable-failure") }
+    try check(actionableFailure.contains(actionableMessage), "native failure preserves the handler's actionable own message")
+    try check(try failureDatabase.rows("SELECT id FROM documents WHERE feature=? AND collection=? AND id=?", ["demo", "items", "failed-reason"]).isEmpty, "actionable failure rolls back record writes")
+    try check(try array(runtime.pendingEffects(appId: "demo")).isEmpty, "actionable failure rolls back surface writes")
+    try check(try failureDatabase.rows("SELECT invocation_id FROM zorid_action_receipts WHERE app_id=? AND invocation_id=?", ["demo", "actionable-failure"]).isEmpty, "actionable failure never commits a receipt")
+
+    let genericFailure = "The app action failed; no changes were saved."
+    let unsafeFailures = [
+      "throw null;", "throw 42;", "throw 'primitive failure';", "throw Symbol('failure');",
+      "throw {toString:function(){return 'must not stringify';}};",
+      "throw Object.defineProperty({},'message',{get:function(){return 'must not invoke getter';}});",
+      "throw Object.defineProperty({},'message',{get:function(){throw new Error('secondary failure');}});",
+      "throw new Proxy({},{getOwnPropertyDescriptor:function(){throw new Error('descriptor trap');}});",
+      "throw new Error('unsafe\\ncontrol');", "throw new Error('unsafe\\u0000control');",
+      "throw new Error('unsafe\\u007fcontrol');", "throw new Error('unsafe\\u009fcontrol');",
+    ]
+    for handler in unsafeFailures {
+      try install(runtime, "function(args,sdk){" + handler + "}")
+      let message = try failureMessage { _ = try invoke(runtime) }
+      try check(message == genericFailure, "unsafe thrown value retains a fixed fallback without evaluating accessors")
+    }
+    try install(runtime, "function(){throw new Error('x'.repeat(1000));}")
+    let boundedFailure = try failureMessage { _ = try invoke(runtime) }
+    try check(boundedFailure.contains(String(repeating: "x", count: 240)) && !boundedFailure.contains(String(repeating: "x", count: 241)), "handler error detail is bounded to 240 characters")
+    try install(runtime, "function(){throw new Error('x'.repeat(239)+'🦦');}")
+    let unicodeFailure = try failureMessage { _ = try invoke(runtime) }
+    try check(unicodeFailure.contains(String(repeating: "x", count: 239)) && !unicodeFailure.contains("�"), "bounded detail does not split a surrogate pair")
+    try install(runtime, "function(){Object.getOwnPropertyDescriptor=function(){return {value:'forged'};};String.prototype.slice=function(){return 'forged';};RegExp.prototype.test=function(){return true;};throw new Error('original reason');}")
+    let intrinsicFailure = try failureMessage { _ = try invoke(runtime) }
+    try check(intrinsicFailure.contains("original reason") && !intrinsicFailure.contains("forged"), "handler cannot replace captured error formatting intrinsics")
+    try install(runtime, "function(args,sdk){try{sdk.records.put('items','illegal',{value:1});}catch(e){}throw new Error('replacement reason');}", capabilities: [])
+    let capabilityFailure = try failureMessage { _ = try invoke(runtime) }
+    try check(capabilityFailure == "The app action lacks the records capability.", "native capability failure takes precedence over a later JavaScript exception")
 
     try install(runtime, "function(args,sdk){try{sdk.records.put('items','illegal',{value:1});}catch(e){}return 'caught';}", capabilities: [])
     try fails("caught capability error still rejects transaction") { _ = try invoke(runtime) }
