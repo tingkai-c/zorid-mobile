@@ -4,6 +4,7 @@ Run with BASH_BINARY=/bin/bash on macOS to cover Apple's Bash 3.2.
 """
 import base64
 import datetime
+import gzip
 import io
 import json
 import os
@@ -107,6 +108,7 @@ class TestFlightProfileTests(unittest.TestCase):
     def test_prepare_internal_upload_uses_app_store_profiles(self):
         cases = (
             ('accepted', self.encoded_profiles(), None),
+            ('gzip accepted', base64.b64encode(gzip.compress(base64.b64decode(self.encoded_profiles()))).decode('ascii'), None),
             ('ad hoc', self.encoded_profiles(devices=True), 'requires App Store Connect distribution profiles'),
             ('missing widget', self.encoded_profiles(widget=False), 'requires exactly the five Zorid'),
             ('missing monitor', self.encoded_profiles(monitor=False), 'requires exactly the five Zorid'),

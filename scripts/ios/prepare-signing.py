@@ -8,6 +8,7 @@ from pathlib import Path
 import plistlib
 import subprocess
 import zipfile
+from profile_archive import decode_profile_archive
 
 root = Path(os.environ['RUNNER_TEMP']) / 'zorid-signing'
 root.mkdir(mode=0o700, exist_ok=True)
@@ -30,7 +31,7 @@ if encoded_profiles:
     # Xcode 16+ uses this location; the workflow requires Xcode 27.
     destination = Path.home() / 'Library/Developer/Xcode/UserData/Provisioning Profiles'
     destination.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded_profiles, validate=True))) as archive:
+    with zipfile.ZipFile(io.BytesIO(decode_profile_archive(encoded_profiles))) as archive:
         for member in archive.infolist():
             if not member.filename.endswith('.mobileprovision'):
                 continue

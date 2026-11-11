@@ -2,6 +2,7 @@
 import base64
 import contextlib
 import datetime
+import gzip
 import importlib.util
 import io
 import json
@@ -73,6 +74,15 @@ class ProfileReportingTests(unittest.TestCase):
                 receipt = inspect(archive(*(profile(bundle) for bundle in MODULE.BUNDLES if bundle != missing)))
                 self.assertFalse(receipt['ready'])
                 self.assertFalse(receipt['profiles'][missing]['present'])
+
+    def test_gzip_wrapper_preserves_legacy_receipt_and_bounds_expansion(self):
+        plain = archive(*(profile(bundle) for bundle in MODULE.BUNDLES))
+        compressed = base64.b64encode(gzip.compress(base64.b64decode(plain))).decode('ascii')
+        self.assertEqual(inspect(compressed), inspect(plain))
+        for raw in (b'\x1f\x8bbroken', gzip.compress(b'PK' + b'x' * 50_000)):
+            with self.subTest(raw_size=len(raw)), patch.object(MODULE, 'MAX_ARCHIVE_BYTES', 1024):
+                with self.assertRaisesRegex(MODULE.ProfileCheckError, '^INVALID_ARCHIVE$'):
+                    inspect(base64.b64encode(raw).decode('ascii'))
 
     def test_current_two_target_archive_stays_unready_without_exposing_metadata(self):
         first = profile(MODULE.BUNDLES[0])

@@ -3,8 +3,6 @@
 This checks profile contents, not the current Apple portal approval state or the
 distribution certificate. Missing capabilities may require profile regeneration.
 """
-import base64
-import binascii
 import datetime
 import io
 import json
@@ -15,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from profile_archive import decode_profile_archive
 
 BUNDLES = ('app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor',
            'app.zorid.mobile.shield-configuration', 'app.zorid.mobile.shield-action')
@@ -68,9 +67,9 @@ def inspect_profiles(encoded, *, decode=decode_profile, now=None):
     if not isinstance(encoded, str) or len(encoded) > 4 * ((MAX_ARCHIVE_BYTES + 2) // 3):
         raise ProfileCheckError('INVALID_ARCHIVE')
     try:
-        raw = base64.b64decode(encoded, validate=True)
+        raw = decode_profile_archive(encoded, MAX_ARCHIVE_BYTES)
         archive = zipfile.ZipFile(io.BytesIO(raw))
-    except (binascii.Error, ValueError, zipfile.BadZipFile):
+    except (ValueError, zipfile.BadZipFile):
         raise ProfileCheckError('INVALID_ARCHIVE') from None
     now = now or datetime.datetime.now(datetime.timezone.utc)
     if now.tzinfo is None:
