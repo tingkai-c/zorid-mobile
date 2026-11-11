@@ -1,0 +1,63 @@
+name: Package existing simulator build for interactive testing
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Completed Build iOS run containing a compiled simulator artifact
+        required: true
+        type: string
+      update_origin:
+        description: Optional public HTTPS test-host origin (requires certificate)
+        default: ''
+        type: string
+      update_certificate_pem:
+        description: Optional public PEM update certificate (never a private key)
+        default: ''
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    env:
+      SOURCE_RUN_ID: ${{ inputs.run_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify packaging regression checks
+        run: python3 scripts/ios/test-sign-simulator.py
+      - name: Validate source build
+        id: source
+        run: python3 scripts/ios/sign-simulator.py source --run-id "$SOURCE_RUN_ID" --repository "$GITHUB_REPOSITORY" --out source.json
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+          name: ${{ steps.source.outputs.artifact }}
+          path: simulator-artifact
+      - name: Validate and unpack simulator archive
+        run: |
+          python3 scripts/ios/sign-simulator.py verify simulator-artifact --source source.json
+          mkdir -p simulator-app build/artifacts
+          ditto -x -k simulator-artifact/Zorid-simulator.zip simulator-app
+      - name: Add simulator-only shared storage and Keychain entitlements
+        env:
+          UPDATE_ORIGIN: ${{ inputs.update_origin }}
+          UPDATE_CERTIFICATE_PEM: ${{ inputs.update_certificate_pem }}
+        run: >-
+          python3 scripts/ios/sign-simulator.py sign simulator-app/Zorid.app
+          --receipt build/artifacts/simulator-signing.json
+          --update-origin "$UPDATE_ORIGIN" --update-certificate-pem "$UPDATE_CERTIFICATE_PEM"
+      - name: Produce downloadable simulator fixture
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent simulator-app/Zorid.app build/artifacts/Zorid-simulator.zip
+          cp simulator-artifact/build-info.txt build/artifacts/build-info.txt
+          cp source.json build/artifacts/source.json
+          (cd build/artifacts && shasum -a 256 Zorid-simulator.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zorid-simulator-test-${{ github.run_number }}
+          path: build/artifacts/*
+          retention-days: 7
