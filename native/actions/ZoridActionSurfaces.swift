@@ -5,13 +5,14 @@ import ActivityKit
 import ZoridActions
 
 private enum ZoridSurfaceError: LocalizedError {
-  case invalidTarget, invalidEffect, unavailableStorage, busy, activityRequiresApp, oversizedActivity, liveActivitiesUnavailable
+  case invalidTarget, invalidEffect, unavailableStorage, widgetLayoutUnavailable, busy, activityRequiresApp, oversizedActivity, liveActivitiesUnavailable
 
   var errorDescription: String? {
     switch self {
     case .invalidTarget: return "The widget action is invalid."
     case .invalidEffect: return "The saved surface update is invalid."
     case .unavailableStorage: return "Shared widget storage is unavailable."
+    case .widgetLayoutUnavailable: return "The widget layout is not ready. Open Zorid and try again."
     case .busy: return "Another surface update is in progress. Please try again."
     case .activityRequiresApp: return "Your change is saved. Open Zorid to refresh the Live Activity."
     case .oversizedActivity: return "The Live Activity update exceeds its data limit."
@@ -97,8 +98,8 @@ actor ZoridActionSurfaces {
   }
 
   private func updateWidget(name: String, props: [String: Any], timeline value: Any?) throws {
-    guard let defaults = WidgetsStorage.defaults,
-          WidgetsLayoutRegistry.layout(for: name) != nil else { throw ZoridSurfaceError.unavailableStorage }
+    guard WidgetsStorage.defaults != nil else { throw ZoridSurfaceError.unavailableStorage }
+    guard WidgetsLayoutRegistry.layout(for: name) != nil else { throw ZoridSurfaceError.widgetLayoutUnavailable }
     let entries: [[String: Any]]
     if let timeline = value as? [[String: Any]], !timeline.isEmpty {
       entries = try timeline.map { item in
@@ -116,7 +117,8 @@ actor ZoridActionSurfaces {
       throw ZoridSurfaceError.invalidEffect
     }
     WidgetsStorage.set(entries, forKey: "__expo_widgets_\(name)_timeline")
-    guard defaults.synchronize() else { throw ZoridSurfaceError.unavailableStorage }
+    // UserDefaults propagates writes automatically. A legacy synchronize() return
+    // value is not a prerequisite to reload; Expo uses the same set/reload order.
     WidgetCenter.shared.reloadTimelines(ofKind: name)
   }
 

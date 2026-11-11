@@ -32,6 +32,8 @@ Aim for WCAG AA contrast, labeled controls, 44-point minimum hit areas, scalable
 ## Responsive behavior
 Primary iPhone portrait; scroll rather than clip on small screens and larger text. Tablet/web preview uses bounded content width. Native extension layouts adapt to widget size.
 
+Live Activity banners pair warm neutral/light or deep green/dark backgrounds with matching high-contrast text. Keep task/status beside a bounded timer and controls below. Dynamic Island uses its system black background, light text, a mint timer symbol and separate compact/expanded timer sizes. Compact countdowns must have a fixed width; avoid reusing a large banner timer in narrow Island regions. Stale sessions show completion without active controls. Validate the actual serialized Expo layout and retain physical-device visual acceptance as a separate check.
+
 ## Interaction states
 Hydration must finish before edits. Empty views explain the next action. Errors retain input and offer retry. Offline is normal; local persistence is not described as synchronized. Disabled operations explain unavailable capability.
 

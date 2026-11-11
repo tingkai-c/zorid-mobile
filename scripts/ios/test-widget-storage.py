@@ -78,10 +78,29 @@ CHECKS = r'''
     do {
       try Adapter().apply()
       fatalError("Missing shared defaults must remain a real error")
+    } catch ZoridSurfaceError.unavailableStorage {
+      print("Missing defaults correctly reports unavailable storage")
     } catch {
-      print("Missing-defaults failure: \(error.localizedDescription)")
+      fatalError("Missing defaults returned the wrong error: \(error.localizedDescription)")
     }
-    print("Widget storage accepted-write regression passed")
+    guard WidgetCenter.shared.reloads == ["ZoridFocus"] else { fatalError("Missing defaults must not reload a widget") }
+
+    WidgetsStorage.defaults = defaults
+    WidgetsLayoutRegistry.registered = false
+    defaults.removeObject(forKey: "__expo_widgets_ZoridFocus_timeline")
+    do {
+      try Adapter().apply()
+      fatalError("A missing registered layout must remain a retryable error")
+    } catch ZoridSurfaceError.widgetLayoutUnavailable {
+      print("Missing layout correctly reports layout not ready rather than unavailable storage")
+    } catch {
+      fatalError("Missing layout returned the wrong error: \(error.localizedDescription)")
+    }
+    guard defaults.array(forKey: "__expo_widgets_ZoridFocus_timeline") == nil else {
+      fatalError("Missing layout must fail before writing an incomplete timeline")
+    }
+    guard WidgetCenter.shared.reloads == ["ZoridFocus"] else { fatalError("Missing layout must not reload a widget") }
+    print("Widget storage accepted-write, missing-defaults and missing-layout regressions passed")
   }
 }
 '''
