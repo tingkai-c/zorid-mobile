@@ -40,7 +40,7 @@ export type NotificationInput = {
 };
 export type DeviceNotification = {
   id: string; title: string; subtitle: string; body: string; categoryId: string;
-  data: { [key: string]: DeviceJSON }; deliveredAt?: number;
+  data: { [key: string]: DeviceJSON }; deliveredAt?: number; nextTriggerAt?: number;
 };
 export type NotificationResponse = {
   id: string; notificationId: string; actionId: string; text?: string; textTruncated?: true;
@@ -70,7 +70,10 @@ export type CalendarEvent = Required<Omit<CalendarEventInput, 'timeZone' | 'note
 };
 export type ReminderInput = {
   id?: string; calendarId?: string; title: string; notes?: string | null; url?: string | null;
-  dueAt?: number | null; startAt?: number | null; priority?: number; completed?: boolean;
+  dueAt?: number | null; startAt?: number | null;
+  /** Omit time components for a calendar-date reminder; supply its corresponding timestamp. */
+  dueDateOnly?: boolean; startDateOnly?: boolean;
+  priority?: number; completed?: boolean;
 };
 export type DeviceReminder = Required<ReminderInput> & { completedAt: number | null };
 

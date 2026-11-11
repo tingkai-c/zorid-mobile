@@ -19,7 +19,9 @@ The monitor extension compiles the same extension-safe controller and planner, w
 
 Device Activity schedules require at least 15 minutes. For shorter remaining timers, the schedule starts in the past so the whole monitoring interval remains at least 15 minutes, while retaining the requested future deadline. Apple documents ongoing interval registration; the short-remaining-session behavior still requires physical-device acceptance. Callbacks occur when the device is in use and are not a second-precise background timer guarantee.
 
-Native capability, extension and entitlement changes require a binary rebuild. Later JavaScript UI and policy orchestration can be deployed directly. Individual authorization is revocable and does not prevent app deletion. TestFlight distribution requires approved Family Controls distribution capability and refreshed provisioning profiles for the main app, widget intent extension and monitor extension. Simulator compilation does not establish real-device enforcement.
+Native capability, extension and entitlement changes require a binary rebuild. Later JavaScript UI and policy orchestration can be deployed directly. Individual authorization is revocable and does not prevent app deletion. TestFlight distribution requires approved Family Controls distribution capability and refreshed provisioning profiles for the main app, widget intent extension, monitor and both shield extensions. Simulator compilation does not establish real-device enforcement.
+
+The regenerated five-target App Store profiles passed the runner's [capability readiness check](https://github.com/tingkai-c/zorid-mobile/actions/runs/43074465570); separate ad-hoc profiles still need updating. [TestFlight build 27](https://github.com/tingkai-c/zorid-mobile/actions/runs/43076740068) compiled, signed all five targets and uploaded successfully; the [Apple status check](https://github.com/tingkai-c/zorid-mobile/actions/runs/43083579423) confirms it is valid and assigned to internal testing. Physical-device installation remains unverified. It also includes a separate [UIKit haptics bridge](../../docs/haptics.md) for deployed UI interactions. See [delivery evidence and remaining device checks](../../docs/verification.md#screen-time-focus-protection).
 
 Official references:
 
@@ -28,3 +30,5 @@ Official references:
 - [Minimum monitoring interval](https://developer.apple.com/documentation/deviceactivity/deviceactivitycenter/monitoringerror/intervaltooshort)
 - [Starting an ongoing monitoring interval](https://developer.apple.com/documentation/deviceactivity/deviceactivitycenter/startmonitoring(_:during:events:))
 - [Distribution entitlement](https://developer.apple.com/documentation/familycontrols/requesting-the-family-controls-entitlement)
+
+Custom shield configuration and action extensions expose Apple’s nine public appearance fields, bounded PNG/SF Symbol icons, blur, dynamic RGBA colors, and version-gated menus/responses to deployed code. Use `configureShield` and `getShield`; see the [complete API and overlap behavior](../../docs/screen-time.md#custom-blocking-screen). The configuration datasource only reads prepared state. It does not execute JavaScript or change restrictions.

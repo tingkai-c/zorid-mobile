@@ -316,6 +316,13 @@ final class ZoridDeviceCalendar: NSObject, EKEventEditViewDelegate, UIAdaptivePr
     let startOnly = try values["startDateOnly"].map { try boolean($0, "startDateOnly") } ?? false
     if let value = values["dueAt"] { reminder.dueDateComponents = try components(value, name: "dueAt", dateOnly: dueOnly) }
     if let value = values["startAt"] { reminder.startDateComponents = try components(value, name: "startAt", dateOnly: startOnly) }
+    // EventKit on iOS requires a start whenever a due date is present. Preserve
+    // an existing explicit start; otherwise infer it from the due components,
+    // retaining date-only fields and their calendar/time zone. Clearing only
+    // startAt while a due date remains follows the same normalization.
+    if reminder.startDateComponents == nil, let due = reminder.dueDateComponents {
+      reminder.startDateComponents = due
+    }
     if let due = componentDate(reminder.dueDateComponents), let start = componentDate(reminder.startDateComponents), due < start { throw ZoridDeviceError.invalid("A reminder due date cannot precede its start date.") }
     if let value = values["priority"] { reminder.priority = try integer(value, "priority", range: 0...9) }
     if let value = values["completed"] { reminder.isCompleted = try boolean(value, "completed") }

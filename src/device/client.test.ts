@@ -93,6 +93,29 @@ describe('deployed device client', () => {
     expect(await pending).toEqual({ id: 'done' });
   });
 
+  test('date-only reminders are writable and survive typed read/edit round trips', async () => {
+    const dueAt = 1_900_000_000_000;
+    const stored = {
+      id: 'reminder', calendarId: 'list', title: 'Plan trip', notes: null, url: null,
+      dueAt, startAt: dueAt, dueDateOnly: true, startDateOnly: true,
+      priority: 0, completed: false, completedAt: null,
+    };
+    const { client, calls } = fixture(JSON.stringify(stored));
+    const saved = await client.calendar.saveReminder({ title: 'Plan trip', dueAt, dueDateOnly: true, startAt: null });
+    expect(JSON.parse(calls[0][2])).toEqual({ reminder: { title: 'Plan trip', dueAt, dueDateOnly: true, startAt: null } });
+    expect(saved.dueDateOnly).toBe(true);
+    expect(saved.startDateOnly).toBe(true);
+    const loaded = await client.calendar.reminder('reminder');
+    if (!loaded) throw new Error('Expected the native reminder result');
+    const { completedAt, ...editable } = loaded;
+    expect(completedAt).toBeNull();
+    await client.calendar.saveReminder({ ...editable, title: 'Updated trip' });
+    expect(JSON.parse(calls[2][2]).reminder).toMatchObject({
+      title: 'Updated trip', dueAt, startAt: dueAt, dueDateOnly: true, startDateOnly: true,
+    });
+    expect(JSON.parse(calls[2][2]).reminder.completedAt).toBeUndefined();
+  });
+
   test('lossy input never reaches native code or invokes accessor/toJSON hooks', async () => {
     const { client, calls } = fixture();
     let accessed = false;
