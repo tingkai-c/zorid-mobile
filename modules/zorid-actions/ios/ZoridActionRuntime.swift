@@ -24,7 +24,7 @@ public final class ZoridActionRuntime {
           CFGetTypeID(runtimeVersion) != CFBooleanGetTypeID(),
           let capabilities = bundle["capabilities"] as? [String],
           Set(capabilities).count == capabilities.count,
-          Set(capabilities).isSubset(of: ["records", "outbox", "surfaces"]),
+          Set(capabilities).isSubset(of: ["records", "outbox", "surfaces", "screenTime"]),
           let handlers = bundle["handlers"] as? [String: String], !handlers.isEmpty, handlers.count <= 64 else {
       throw ZoridActionError("Unsupported or invalid action bundle.")
     }
@@ -290,6 +290,24 @@ private final class ZoridActionExecution {
     surfaces.setObject(publish, forKeyedSubscript: "publish" as NSString)
     sdk.setObject(surfaces, forKeyedSubscript: "surfaces" as NSString)
 
+    // Like surface updates, restrictions apply after the records and receipt commit.
+    // A separate capability prevents a surfaces-only handler from changing access.
+    let screenTime = JSValue(newObjectIn: context)!
+    let applyScreenTime: @convention(block) (JSValue) -> Any? = { command in
+      self.bridge("screenTime") {
+        let effect = ["screenTime": try self.validatedScreenTimeCommand(command)]
+        let count = try self.database.rows("SELECT count(*) AS count FROM zorid_action_effects WHERE app_id=?", [self.appId]).first?["count"] as? NSNumber
+        guard (count?.intValue ?? 0) < 1000 else { throw ZoridActionError("Too many pending device updates.") }
+        let id = UUID().uuidString.lowercased()
+        try self.database.execute("INSERT INTO zorid_action_effects(id,app_id,invocation_id,payload,created_at) VALUES(?,?,?,?,?)", [id, self.appId, self.invocationId, try actionJSON(effect), self.now])
+        return id
+      }
+    }
+    screenTime.setObject(applyScreenTime, forKeyedSubscript: "apply" as NSString)
+    if capabilities.contains("screenTime") {
+      sdk.setObject(screenTime, forKeyedSubscript: "screenTime" as NSString)
+    }
+
     // Only the trusted function source is evaluated. User arguments are bridged as values.
     guard let handler = context.evaluateScript("(\(source))"), context.exception == nil,
           context.evaluateScript("(function(f){return typeof f === 'function';})")?.call(withArguments: [handler])?.toBool() == true else {
@@ -359,6 +377,26 @@ private final class ZoridActionExecution {
       throw ZoridActionError("Stored action record contains invalid JSON.")
     }
     return value
+  }
+
+  private func validatedScreenTimeCommand(_ value: JSValue) throws -> [String: Any] {
+    guard let command = try actionParse(jsonValue(value)) as? [String: Any] else {
+      throw ZoridActionError("Invalid Screen Time request.")
+    }
+    if command.keys.count == 1, let clear = command["clear"] as? NSNumber,
+       CFGetTypeID(clear) == CFBooleanGetTypeID(), clear.boolValue { return ["clear": true] }
+    guard Set(command.keys) == Set(["policyId", "sessionId", "endsAt"]),
+          let policyId = command["policyId"] as? String,
+          let sessionId = command["sessionId"] as? String,
+          let endsAt = command["endsAt"] as? NSNumber,
+          CFGetTypeID(endsAt) != CFBooleanGetTypeID(), endsAt.doubleValue.isFinite,
+          endsAt.doubleValue > 0, endsAt.doubleValue.rounded() == endsAt.doubleValue,
+          endsAt.doubleValue <= now + 86_400_000 else {
+      throw ZoridActionError("Screen Time needs a policy, session and deadline within 24 hours.")
+    }
+    try actionIdentifier(policyId, maximum: 64)
+    try actionIdentifier(sessionId, maximum: 64)
+    return command
   }
 
   private func widgetValue(_ value: Any) -> Bool {

@@ -2,7 +2,7 @@ import { encodeActionTarget } from '../actions/codec';
 import { workedMs, type FocusSession } from '../domain/focus';
 import { presentFocus, type FocusPresentation } from './focus';
 
-export const focusActionVersion = 'focus-actions-1';
+export const focusActionVersion = 'focus-actions-2';
 
 // This module is bundled into both the app and the isolated action runtime.
 export function focusSessionPresentation(session: FocusSession, now: number): FocusPresentation {

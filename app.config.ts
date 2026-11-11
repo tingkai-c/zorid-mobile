@@ -9,7 +9,7 @@ if (updateURL && (new URL(updateURL).protocol !== 'https:' || updateURL !== `${n
 const config: ExpoConfig = {
   name: 'Zorid', slug: 'zorid-mobile', scheme: 'zorid', version: '0.1.0',
   orientation: 'portrait', userInterfaceStyle: 'light', icon: './assets/icon.png',
-  runtimeVersion: 'zorid-3',
+  runtimeVersion: 'zorid-4',
   ios: {
     bundleIdentifier: 'app.zorid.mobile',
     supportsTablet: true,
@@ -36,6 +36,7 @@ const config: ExpoConfig = {
       bundleIdentifier: 'app.zorid.mobile.widgets', groupIdentifier: 'group.app.zorid.mobile', enablePushNotifications: false,
       widgets: [{ name: 'ZoridFocus', displayName: 'Zorid Focus', description: 'Your current task and focus countdown.', ios: { supportedFamilies: ['systemSmall', 'systemMedium'], initialLayout: './src/native/FocusWidget.tsx' } }],
     }],
+    './plugins/with-zorid-screen-time.cjs',
     './plugins/with-zorid-actions.cjs',
   ],
 };

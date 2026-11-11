@@ -1,6 +1,6 @@
 import Foundation
 
-private enum FixtureError: Error { case rejectedActivity, rejectedWidget, rejectedCheckpoint, rejectedAcknowledgement }
+private enum FixtureError: Error { case rejectedActivity, rejectedWidget, rejectedCheckpoint, rejectedAcknowledgement, rejectedRestriction }
 private struct TestFailure: Error, CustomStringConvertible {
   let description: String
 }
@@ -20,10 +20,12 @@ private final class Fixture {
   var checkpoints: [String: Int64] = [:]
   var widgets: [Int64] = []
   var activities: [Int64] = []
+  var restrictions: [Int64] = []
   var acknowledged: [String] = []
   var fetches: [Int64] = []
   var rejectWidget: (Int64) -> Bool = { _ in false }
   var rejectActivity: (Int64) -> Bool = { _ in false }
+  var rejectRestriction: (Int64) -> Bool = { _ in false }
   var rejectSaveCount = 0
   var rejectAcknowledgementCount = 0
 
@@ -43,6 +45,10 @@ private final class Fixture {
       applyActivity: { item in
         if self.rejectActivity(item.sequence) { throw FixtureError.rejectedActivity }
         self.activities.append(item.sequence)
+      },
+      applyScreenTime: { item in
+        if self.rejectRestriction(item.sequence) { throw FixtureError.rejectedRestriction }
+        self.restrictions.append(item.sequence)
       },
       saveCheckpoints: { next in
         if self.rejectSaveCount > 0 { self.rejectSaveCount -= 1; throw FixtureError.rejectedCheckpoint }
@@ -118,6 +124,23 @@ struct SurfaceEffectChecks {
     stale.checkpoints = ["widget:TestWidget": 10, "activity:TestActivity": 10]
     try expect(try await stale.flush() == 1, "stale effects should acknowledge without applying old state")
     try expect(stale.widgets.isEmpty && stale.activities.isEmpty, "stale effects must not overwrite newer state")
-    print("8 native surface-effect regression checks passed")
+    func restriction(_ sequence: Int, clear: Bool) -> [String: Any] {
+      ["id": "restriction-\(sequence)", "appId": "test-app", "sequence": sequence,
+       "screenTime": clear ? ["clear": true] : ["policyId": "focus", "sessionId": "session", "endsAt": 123456789]]
+    }
+    let unblocked = Fixture([restriction(1, clear: false), effect(2), restriction(3, clear: true)])
+    unblocked.rejectRestriction = { $0 == 1 }
+    try expect(try await unblocked.flush() == 3, "new clear must supersede failed activation")
+    try expect(unblocked.restrictions == [3], "failed restriction does not block later unblocking")
+    try expect(unblocked.widgets == [2] && unblocked.activities == [2], "restriction failure does not block native surfaces")
+    let staleRestriction = Fixture([restriction(1, clear: false)])
+    staleRestriction.checkpoints = ["screenTime:test-app": 3]
+    try expect(try await staleRestriction.flush() == 1, "old activation acknowledges after newer clear checkpoint")
+    try expect(staleRestriction.restrictions.isEmpty, "old activation cannot reblock after newer clear")
+    let retryRestriction = Fixture([restriction(1, clear: true)])
+    retryRestriction.rejectAcknowledgementCount = 1
+    try expect(try await retryRestriction.flush() == 1, "restriction acknowledgement can retry")
+    try expect(retryRestriction.restrictions == [1], "acknowledgement retry does not reapply restriction")
+    print("11 native surface-effect regression checks passed")
   }
 }

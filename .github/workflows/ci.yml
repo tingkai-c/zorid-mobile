@@ -21,6 +21,7 @@ jobs:
       - run: bun run lint
       - run: bun test
       - run: python3 scripts/ios/test-build.py
+      - run: python3 scripts/ios/test-screen-time-profiles.py
       - run: python3 scripts/ios/test-simulator-smoke.py
       - run: bun run export:ios
       - uses: actions/upload-artifact@v4

@@ -18,7 +18,7 @@ profiles = {}
 profiles_secret = 'IOS_APP_STORE_PROFILES_ZIP_BASE64' if testflight else 'IOS_PROFILES_ZIP_BASE64'
 encoded_profiles = os.environ.get(profiles_secret)
 if testflight and not encoded_profiles:
-    raise ValueError('TestFlight requires App Store Connect profiles for the app and widget extension')
+    raise ValueError('TestFlight requires App Store Connect profiles for the app, widget and focus monitor extensions')
 if testflight or not encoded_profiles:
     for key in ('ASC_API_KEY_P8_BASE64', 'ASC_API_KEY_ID', 'ASC_API_ISSUER_ID'):
         if not os.environ.get(key):
@@ -40,6 +40,8 @@ if encoded_profiles:
             decoded = subprocess.run(['security', 'cms', '-D', '-i', str(temporary)], capture_output=True, check=True)
             profile = plistlib.loads(decoded.stdout)
             entitlements = profile['Entitlements']
+            if entitlements.get('com.apple.developer.family-controls') is not True:
+                raise ValueError('Screen Time requires approved Family Controls distribution profiles for every target')
             if team not in profile['TeamIdentifier']:
                 raise ValueError('Profile team mismatch')
             if profile['ExpirationDate'] <= datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None):
@@ -72,8 +74,8 @@ if encoded_profiles:
 else:
     options = {'method': 'release-testing', 'signingStyle': 'automatic', 'teamID': team}
 if testflight:
-    if set(profiles) != {'app.zorid.mobile', 'app.zorid.mobile.widgets'}:
-        raise ValueError('TestFlight requires exactly the Zorid app and widget extension profiles')
+    if set(profiles) != {'app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor'}:
+        raise ValueError('TestFlight requires exactly the Zorid app, widget and focus monitor extension profiles')
     options.update(destination='upload', testFlightInternalTestingOnly=True, manageAppVersionAndBuildNumber=False)
 (root / 'ExportOptions.plist').write_bytes(plistlib.dumps(options))
 (root / 'profiles.json').write_text(json.dumps({'team': team, 'profiles': profiles}))

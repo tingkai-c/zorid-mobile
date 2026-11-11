@@ -1,6 +1,11 @@
 /** Values that survive the native bridge without lossy JSON coercion. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-export type ActionCapability = 'records' | 'outbox' | 'surfaces';
+export type ActionCapability = 'records' | 'outbox' | 'surfaces' | 'screenTime';
+
+/** A policy is selected on this device; opaque Screen Time tokens never enter JS. */
+export type ScreenTimeCommand = { policyId: string; sessionId: string; endsAt: number } | { clear: true };
+export type ScreenTimeEffect = { id: string; appId: string; sequence?: number; screenTime: ScreenTimeCommand };
+export type ActionEffect = SurfaceEffect | ScreenTimeEffect;
 
 /** Sources are bundled on the host. Hermes does not guarantee Function.toString source. */
 export type ActionBundle = {
@@ -45,13 +50,14 @@ export type ActionSDK = {
   };
   outbox: { enqueue(type: string, payload: JsonValue): string };
   surfaces: { publish(effect: SurfacePublication): void };
+  screenTime?: { apply(command: ScreenTimeCommand): void };
 };
 
 export type ActionResult<T = JsonValue> = {
   invocationId: string;
   duplicate: boolean;
   result: T;
-  effects: SurfaceEffect[];
+  effects: ActionEffect[];
   /** Records are committed even when a separate surface refresh needs retrying. */
   surfaceError?: string;
 };

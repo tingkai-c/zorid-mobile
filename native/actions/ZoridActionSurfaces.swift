@@ -3,6 +3,7 @@ import Darwin
 import WidgetKit
 import ActivityKit
 import ZoridActions
+import ZoridScreenTime
 
 private enum ZoridSurfaceError: LocalizedError {
   case invalidTarget, invalidEffect, unavailableStorage, widgetLayoutUnavailable, busy, activityRequiresApp, oversizedActivity, liveActivitiesUnavailable
@@ -91,6 +92,10 @@ actor ZoridActionSurfaces {
           end: effect.payload["endActivity"] as? Bool ?? false,
           staleAt: (effect.payload["staleAt"] as? NSNumber)?.doubleValue,
           start: effect.payload["startActivity"] as? Bool ?? false, url: effect.payload["url"] as? String)
+      },
+      applyScreenTime: { effect in
+        guard let command = effect.payload["screenTime"] as? [String: Any] else { throw ZoridSurfaceError.invalidEffect }
+        try ZoridScreenTimeController.shared.apply(appId: appId, command: command)
       },
       saveCheckpoints: { try self.saveCheckpoints($0, to: checkpointURL) },
       acknowledge: { try ZoridActionRuntime.shared.acknowledgeEffects(ids: $0) }

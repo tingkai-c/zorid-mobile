@@ -9,6 +9,8 @@ Quiet, practical personal workspace. Trust comes from explicit local/connected/u
 ## Product goals
 A native launcher that grows through features. First proof: tasks, focus sessions, session history and native surfaces. Full Notion-like editing and desktop UI are later work. Success: create a task, track work offline, recover state after relaunch, pair with a host.
 
+Prioritize a growing personal productivity app and reusable native capabilities. Keep direct JavaScript deployment for iteration; defer independent app distribution and additional platform management.
+
 ## Personas and jobs
 One person using iPhone and eventually desktop. Agents build tools on their paired host. Everyday data must remain usable without that host.
 
@@ -35,6 +37,8 @@ Primary iPhone portrait; scroll rather than clip on small screens and larger tex
 Live Activity banners pair warm neutral/light or deep green/dark backgrounds with matching high-contrast text. Keep task/status beside a bounded timer and controls below. Dynamic Island uses its system black background, light text, a mint timer symbol and separate compact/expanded timer sizes. Compact countdowns must have a fixed width; avoid reusing a large banner timer in narrow Island regions. Finished and stale sessions become a distinct completion card: a checkmark, “Focus complete,” task title, actual focused duration, and a quiet recharge message. Completion replaces countdowns and controls in every region; compact Island shows a checkmark and a bounded “Done” label. Validate the actual serialized Expo layout and retain physical-device visual acceptance as a separate check.
 
 ## Interaction states
+
+Focus protection lives on the Focus page. Request Screen Time access only when the person chooses it. Present Apple's native app picker for a blocklist or allowlist; show selection counts and actual native protection state. Save app selections on the device. Pause and finish release protection. Keep a visible Turn off app blocking action and explain any failed release or emergency policy reset. Do not display an enabled preference as proof that restrictions are currently active.
 Hydration must finish before edits. Empty views explain the next action. Errors retain input and offer retry. Offline is normal; local persistence is not described as synchronized. Disabled operations explain unavailable capability.
 
 ## Content voice

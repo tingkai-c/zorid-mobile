@@ -73,6 +73,7 @@ test('serialization rejects lossy JSON, incompatible bundles and invalid capabil
   expect(() => serializeActionBundle({ ...bundle, runtimeVersion: 2 as never })).toThrow('runtime version');
   expect(() => serializeActionBundle({ ...bundle, capabilities: ['records', 'records'] })).toThrow('duplicate');
   expect(() => serializeActionBundle({ ...bundle, capabilities: ['camera' as never] })).toThrow('capability');
+  expect(JSON.parse(serializeActionBundle({ ...bundle, capabilities: ['records', 'screenTime'] })).capabilities).toEqual(['records', 'screenTime']);
   expect(() => serializeActionBundle({ ...bundle, handlers: {} })).toThrow('1–64');
   expect(() => serializeActionBundle({ ...bundle, handlers: { action: ' '.repeat(128 * 1024 + 1) } })).toThrow();
   expect(JSON.parse(serializeActionRequest({ ...request, bundleVersion: undefined }))).not.toHaveProperty('bundleVersion');

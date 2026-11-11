@@ -288,6 +288,32 @@ struct ZoridActionChecks {
     catch { parseDescription = error.localizedDescription }
     try check(parseDescription == "Invalid action JSON.", "JSON parse errors fail without revealing input")
 
+    let restrictionApp = "restrictions"
+    try install(runtime, "function(args,sdk){sdk.records.put('state','timer',{running:true});sdk.screenTime.apply({policyId:'focus',sessionId:'session-1',endsAt:sdk.now+1500000});return 'queued';}", app: restrictionApp, capabilities: ["records", "screenTime"])
+    let restricted = try invoke(runtime, id: "restrict-once", app: restrictionApp)
+    let restrictionEffects = restricted["effects"] as! [[String: Any]]
+    try check(restrictionEffects.count == 1 && restrictionEffects[0]["screenTime"] is [String: Any], "Screen Time request commits as a durable effect")
+    try check(restrictionEffects[0]["widget"] == nil && restrictionEffects[0]["props"] == nil, "restriction effect is independent of widget rendering")
+    _ = try invoke(runtime, id: "restrict-once", app: restrictionApp)
+    try check(try array(runtime.pendingEffects(appId: restrictionApp)).count == 1, "duplicate action does not enqueue duplicate restrictions")
+    try install(runtime, "function(args,sdk){sdk.screenTime.apply({clear:true});}", app: restrictionApp, capabilities: ["screenTime"])
+    let cleared = try invoke(runtime, app: restrictionApp)
+    try check(((cleared["effects"] as! [[String: Any]])[0]["screenTime"] as! [String: Any])["clear"] as? Bool == true, "clear is queued without requiring layout or records")
+    try install(runtime, "function(args,sdk){return typeof sdk.screenTime;}", app: "no-restrictions", capabilities: [])
+    try check(try invoke(runtime, app: "no-restrictions")["result"] as? String == "undefined", "optional Screen Time SDK is absent without declared capability")
+    for invalid in ["{clear:false}", "{clear:1}", "{clear:true,policyId:'focus'}", "{policyId:'../escape',sessionId:'s',endsAt:sdk.now+10000}", "{policyId:'focus',sessionId:'s',endsAt:true}", "{policyId:'focus',sessionId:'s',endsAt:sdk.now+86400001}", "{policyId:'focus',sessionId:'s',endsAt:1.5}", "{policyId:'focus',sessionId:'s',endsAt:sdk.now+10000,tokens:['private']}"] {
+      try install(runtime, "function(args,sdk){sdk.records.put('state','rollback',{bad:true});try{sdk.screenTime.apply(" + invalid + ");}catch(e){};}", app: "restriction-rollback", capabilities: ["records", "screenTime"])
+      try fails("invalid Screen Time command latches failure even if handler catches") { _ = try invoke(runtime, app: "restriction-rollback") }
+    }
+    try check(try array(runtime.pendingEffects(appId: "restriction-rollback")).isEmpty, "invalid restriction never leaves a device effect")
+    try install(runtime, "function(args,sdk){return sdk.records.get('state','rollback');}", app: "restriction-rollback")
+    try check(try invoke(runtime, app: "restriction-rollback")["result"] is NSNull, "invalid restriction rolls back prior record writes")
+    try install(runtime, "function(args,sdk){sdk.screenTime.apply({clear:true});throw new Error('cancel');}", app: "restriction-rollback", capabilities: ["screenTime"])
+    try fails("handler failure rolls back a valid restriction effect") { _ = try invoke(runtime, app: "restriction-rollback") }
+    try check(try array(runtime.pendingEffects(appId: "restriction-rollback")).isEmpty, "rolled-back restriction cannot apply later")
+    try install(runtime, "function(args,sdk){sdk.surfaces.publish({widget:'DemoWidget',props:{},screenTime:{clear:true}});}", app: "restriction-bypass", capabilities: ["surfaces"])
+    try fails("surface capability cannot smuggle Screen Time changes") { _ = try invoke(runtime, app: "restriction-bypass") }
+
     print("Native action checks passed: \(checks)")
   }
 }

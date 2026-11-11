@@ -9,7 +9,7 @@ const MAX_REQUEST_BYTES = 64 * 1024;
 const MAX_TARGET_CHARACTERS = 32 * 1024;
 const MAX_BUNDLE_BYTES = 512 * 1024;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const CAPABILITIES: ActionCapability[] = ['records', 'outbox', 'surfaces'];
+const CAPABILITIES: ActionCapability[] = ['records', 'outbox', 'surfaces', 'screenTime'];
 const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
 // JavaScriptCore action contexts have no TextEncoder, Buffer or browser globals.

@@ -76,9 +76,11 @@ class ArchiveSigningTests(unittest.TestCase):
 
 class TestFlightProfileTests(unittest.TestCase):
     @staticmethod
-    def encoded_profiles(*, devices=False, widget=True):
+    def encoded_profiles(*, devices=False, widget=True, monitor=True, family=True):
         buffer = io.BytesIO()
         bundles = ('app.zorid.mobile', 'app.zorid.mobile.widgets') if widget else ('app.zorid.mobile',)
+        if monitor:
+            bundles += ('app.zorid.mobile.focus-monitor',)
         with zipfile.ZipFile(buffer, 'w') as archive:
             for index, bundle in enumerate(bundles):
                 profile = {
@@ -90,6 +92,7 @@ class TestFlightProfileTests(unittest.TestCase):
                         'beta-reports-active': True,
                         'get-task-allow': False,
                         'com.apple.security.application-groups': ['group.app.zorid.mobile'],
+                        'com.apple.developer.family-controls': family,
                     },
                 }
                 if devices:
@@ -101,8 +104,10 @@ class TestFlightProfileTests(unittest.TestCase):
         cases = (
             ('accepted', self.encoded_profiles(), None),
             ('ad hoc', self.encoded_profiles(devices=True), 'requires App Store Connect distribution profiles'),
-            ('missing widget', self.encoded_profiles(widget=False), 'requires exactly the Zorid app and widget'),
-            ('missing secret', '', 'requires App Store Connect profiles for the app and widget'),
+            ('missing widget', self.encoded_profiles(widget=False), 'requires exactly the Zorid app, widget and focus monitor'),
+            ('missing monitor', self.encoded_profiles(monitor=False), 'requires exactly the Zorid app, widget and focus monitor'),
+            ('missing entitlement', self.encoded_profiles(family=False), 'requires approved Family Controls'),
+            ('missing secret', '', 'requires App Store Connect profiles for the app, widget and focus monitor'),
         )
         for description, profiles, error in cases:
             with self.subTest(description=description), tempfile.TemporaryDirectory() as directory:
@@ -138,7 +143,7 @@ class TestFlightProfileTests(unittest.TestCase):
                 self.assertEqual(options['destination'], 'upload')
                 self.assertTrue(options['testFlightInternalTestingOnly'])
                 self.assertFalse(options['manageAppVersionAndBuildNumber'])
-                self.assertEqual(set(options['provisioningProfiles']), {'app.zorid.mobile', 'app.zorid.mobile.widgets'})
+                self.assertEqual(set(options['provisioningProfiles']), {'app.zorid.mobile', 'app.zorid.mobile.widgets', 'app.zorid.mobile.focus-monitor'})
                 self.assertEqual(json.loads((signing / 'api.json').read_text())['keyId'], 'TESTKEY')
 
 

@@ -55,6 +55,8 @@ jobs:
           "$RUNNER_TEMP/zorid-focus-action-checks" build/actions/focus-control.txt
           swiftc -swift-version 5 native/actions/ZoridSurfaceEffectQueue.swift scripts/ios/test-surface-effects.swift -o "$RUNNER_TEMP/zorid-surface-checks"
           "$RUNNER_TEMP/zorid-surface-checks"
+          swiftc modules/zorid-screen-time/ios/ZoridScreenTimePlan.swift modules/zorid-screen-time/tests/test-plan.swift -o "$RUNNER_TEMP/zorid-screen-time-checks"
+          "$RUNNER_TEMP/zorid-screen-time-checks"
           swiftc modules/zorid-shell/ios/ZoridRoutes.swift modules/zorid-shell/tests/test-routes.swift -o "$RUNNER_TEMP/zorid-route-checks"
           "$RUNNER_TEMP/zorid-route-checks"
       - name: Configure public update trust anchor

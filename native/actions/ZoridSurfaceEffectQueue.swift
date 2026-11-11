@@ -5,34 +5,38 @@ struct ZoridSurfaceEffect {
   let sequence: Int64
   let widget: String?
   let activity: String?
+  let hasScreenTime: Bool
   let payload: [String: Any]
 
   init(_ payload: [String: Any], appId: String) throws {
     guard let id = payload["id"] as? String, !id.isEmpty,
           payload["appId"] as? String == appId,
           let number = payload["sequence"] as? NSNumber,
-          number.int64Value > 0, number.doubleValue == Double(number.int64Value),
-          payload["props"] is [String: Any] else { throw ZoridSurfaceQueueError.invalidEffect }
+          number.int64Value > 0, number.doubleValue == Double(number.int64Value) else { throw ZoridSurfaceQueueError.invalidEffect }
     self.id = id
     sequence = number.int64Value
     widget = payload["widget"] as? String
     activity = payload["activity"] as? String
-    guard widget != nil || activity != nil else { throw ZoridSurfaceQueueError.invalidEffect }
+    hasScreenTime = payload["screenTime"] is [String: Any]
+    guard widget != nil || activity != nil || hasScreenTime,
+          (widget == nil && activity == nil) || payload["props"] is [String: Any] else { throw ZoridSurfaceQueueError.invalidEffect }
     self.payload = payload
   }
 
   var keys: [String] {
-    [widget.map { "widget:\($0)" }, activity.map { "activity:\($0)" }].compactMap { $0 }
+    [widget.map { "widget:\($0)" }, activity.map { "activity:\($0)" },
+     hasScreenTime ? "screenTime:\(payload["appId"] as! String)" : nil].compactMap { $0 }
   }
 }
 
 enum ZoridSurfaceQueueError: LocalizedError {
-  case invalidEffect, morePending
+  case invalidEffect, morePending, screenTimeUnavailable
 
   var errorDescription: String? {
     switch self {
     case .invalidEffect: return "The saved surface update is invalid."
     case .morePending: return "Your changes are saved. More surface updates remain; refresh again."
+    case .screenTimeUnavailable: return "Screen Time could not update. Install a Zorid binary with Screen Time support."
     }
   }
 }
@@ -46,6 +50,7 @@ enum ZoridSurfaceEffectQueue {
     fetch: (Int64) throws -> [[String: Any]],
     applyWidget: (ZoridSurfaceEffect) async throws -> Void,
     applyActivity: (ZoridSurfaceEffect) async throws -> Void,
+    applyScreenTime: ((ZoridSurfaceEffect) async throws -> Void)? = nil,
     saveCheckpoints: ([String: Int64]) throws -> Void,
     acknowledge: ([String]) throws -> Void
   ) async throws -> Int {
@@ -93,6 +98,16 @@ enum ZoridSurfaceEffectQueue {
         cursor = effect.sequence
         if seen[effect.id] != nil { continue }
         seen[effect.id] = effect
+        if effect.hasScreenTime {
+          let key = "screenTime:\(appId)"
+          if effect.sequence > (checkpoints[key] ?? 0) {
+            do {
+              guard let applyScreenTime else { throw ZoridSurfaceQueueError.screenTimeUnavailable }
+              try await applyScreenTime(effect)
+              try checkpoint(key, sequence: effect.sequence)
+            } catch { errors.append((effect, key, error)) }
+          }
+        }
         if let widget = effect.widget {
           let key = "widget:\(widget)"
           if effect.sequence > (checkpoints[key] ?? 0) {

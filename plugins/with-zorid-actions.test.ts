@@ -17,6 +17,7 @@ describe('downloaded native action integration', () => {
     const original = source('ExpoWidgets.podspec');
     const patched = patchPodspec(original);
     expect(patched).toContain("s.dependency 'ZoridActions'");
+    expect(patched).toContain("s.dependency 'ZoridScreenTime'");
     expect(patched).toContain('# @generated begin zorid-actions-dependency');
     expect(patched).not.toContain('// @generated');
     expect(patched).toContain("s.dependency 'ExpoUI'");

@@ -22,7 +22,7 @@ function insertBlock(source, anchor, name, content, comment = '//') {
 }
 
 function patchPodspec(source) {
-  return insertBlock(source, "  s.dependency 'ExpoUI'", 'dependency', "  s.dependency 'ZoridActions'", '#');
+  return insertBlock(source, "  s.dependency 'ExpoUI'", 'dependency', "  s.dependency 'ZoridActions'\n  s.dependency 'ZoridScreenTime'", '#');
 }
 
 function patchIntent(source, declaration, name) {
