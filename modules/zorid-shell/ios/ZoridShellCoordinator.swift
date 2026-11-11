@@ -19,7 +19,7 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private var attemptedInitialDownload = false
   private var pendingOpen = false
   private var pendingOpeningFeedback = false
-  private let openingFeedback = UIImpactFeedbackGenerator(style: .soft)
+  private let openingFeedback = UIImpactFeedbackGenerator(style: .heavy)
   private let motion = CMMotionManager()
   private var shakeDetector = ZoridShakeDetector()
 
@@ -219,7 +219,7 @@ public final class ZoridShellCoordinator: NSObject, UIGestureRecognizerDelegate 
   private func playOpeningFeedback() {
     guard pendingOpeningFeedback else { return }
     pendingOpeningFeedback = false
-    openingFeedback.impactOccurred(intensity: 0.7)
+    openingFeedback.impactOccurred(intensity: 1.0)
   }
 
   private func panelIsAttached(to root: UIViewController?) -> Bool {

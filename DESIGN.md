@@ -24,7 +24,7 @@ Native controls, readable content, explicit errors. Show saved state before deco
 Warm neutral background, white cards, dark charcoal text, teal accent. System fonts and Dynamic Type. Spacing 8/12/16/24/32. Rounded cards, minimal shadows. No required animation or imagery.
 
 ## Components
-Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. Zorid Settings uses a SwiftUI grouped form inside a tall iOS bottom sheet with system transitions. Use semantic colors, Dynamic Type and labeled SF Symbols. When an app is loaded, show the grabber and let the user swipe down or tap Done. Each explicit opening produces one soft haptic. Automatic setup and repeated requests while already visible stay silent. Pairing success and failure use the corresponding notification feedback.
+Reusable screen, section/card, button, field and status styles in src/ui. Include disabled, loading and error variants. Demo-owned tab navigation and safe areas. Zorid Settings uses a SwiftUI grouped form inside a tall iOS bottom sheet with system transitions. Use semantic colors, Dynamic Type and labeled SF Symbols. When an app is loaded, show the grabber and let the user swipe down or tap Done. Each explicit opening produces one heavy haptic at full intensity. Automatic setup and repeated requests while already visible stay silent. Pairing success and failure use the corresponding notification feedback.
 
 Page headers start with the page title and subtitle. Omit the repeated product/device label above them.
 
