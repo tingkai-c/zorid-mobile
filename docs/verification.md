@@ -1,5 +1,19 @@
 # Foundation delivery evidence
 
+## Widget storage and Lock Screen repair
+
+Commit `2508dd5` removes the legacy `UserDefaults.synchronize()` reload prerequisite. The [native reproduction](https://github.com/tingkai-c/zorid-mobile/actions/runs/43044485526) ran the actual extracted Swift method with real Foundation defaults: the timeline read back correctly, but a false legacy flush result raised `Shared widget storage is unavailable.` and skipped reload. The [corrected native regression](https://github.com/tingkai-c/zorid-mobile/actions/runs/43045681679) passes accepted writes and retains distinct failures for missing defaults and missing layouts. This proves that false-error path; it is not a captured trace of the user's phone.
+
+The user's Lock Screen screenshot confirmed dark green labels on a black card and a narrow centered stack. The revised layout pairs background/foreground colors, places title/status beside a bounded countdown and controls below, and gives Dynamic Island its own readable colors and compact sizing. [Foundation CI](https://github.com/tingkai-c/zorid-mobile/actions/runs/43045682030) passed 74 Bun tests with 475 assertions, typecheck, lint, PostgreSQL checks and iOS export. Ten tests evaluate the actual installed Expo widget serializer/runtime for contrast, countdown bounds, action-target preservation and stale controls. The [JavaScript export artifact](https://github.com/tingkai-c/zorid-mobile/actions/runs/43045682030/artifacts/13866728337) is downloadable.
+
+The original device screenshot is private and is not committed or included in public artifacts. No post-update device screenshot is available, so actual Lock Screen appearance remains an acceptance check. Existing simulator install/launch timeouts make the old smoke harness insufficient for ActivityKit visual acceptance.
+
+TestFlight build 20 compiled, signed and uploaded from `2508dd5`; its [upload receipt](https://github.com/tingkai-c/zorid-mobile/actions/runs/43045494030/artifacts/13868626317) is downloadable. The full native workflow also passed the widget-storage regressions, 73 core checks, the compiled Focus lifecycle, eight queue recovery scenarios and route persistence checks.
+
+App Store Connect confirmed processing `VALID`, audience `INTERNAL_ONLY`, internal state `IN_BETA_TESTING` and assignment to the existing internal group. The group has access to all builds: automatic assignment lagged initial processing readiness. A manual relationship-add request was rejected with `ENTITY_UNPROCESSABLE` because this group receives builds automatically; the subsequent read confirmed the build was assigned without that mutation.
+
+Runtime `zorid-3` release `1000e988-5b48-40f7-a652-caf8747c629c` was published at 2026-11-11 15:25:07 UTC, after build 20 finished. An authenticated probe verified its RSA signature, all 24 asset hashes and the newer-than-embedded timestamp rule; temporary probe credentials were revoked. Earlier visual release `52c7da25-ad8b-42cc-98eb-7475950144aa` supplied the same layout to existing build 19 installations while the native build ran.
+
 ## Downloaded actions, shortcuts and deep links
 
 Implementation `81765a5` adds the shared JavaScriptCore action runtime, App Group SQLite migration, durable action receipts and surface effects, Home Screen quick actions and queued custom-scheme routes. The Focus demo exercises Pause, Resume and Finish from the app, widget and Live Activity.
