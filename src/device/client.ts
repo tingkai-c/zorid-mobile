@@ -196,7 +196,16 @@ export function createDeviceClient(native: NativeDevice | null) {
       editEvent: (event?: Partial<CalendarEventInput>) => invoke<{ action: 'saved' | 'deleted' | 'canceled'; id: string | null }>('calendar', 'editEvent', event === undefined ? {} : { event }),
       reminders: (options: { calendarIds: string[]; completed?: boolean; limit?: number }) => invoke<{ reminders: DeviceReminder[]; truncated: boolean }>('calendar', 'reminders', options),
       reminder: (id: string) => invoke<DeviceReminder | null>('calendar', 'reminder', { id }, true),
-      saveReminder: (reminder: ReminderInput) => invoke<DeviceReminder>('calendar', 'saveReminder', { reminder }),
+      saveReminder: async (reminder: ReminderInput) => {
+        if (!available) throw new Error(unavailableMessage);
+        const captured = snapshotJSON(reminder);
+        if (record(captured)) {
+          for (const [date, flag] of [['dueAt', 'dueDateOnly'], ['startAt', 'startDateOnly']] as const) {
+            if (captured[date] === null && captured[flag] === false) delete captured[flag];
+          }
+        }
+        return invoke<DeviceReminder>('calendar', 'saveReminder', { reminder: captured });
+      },
       setReminderCompleted: (id: string, completed: boolean) => invoke<DeviceReminder>('calendar', 'setReminderCompleted', { id, completed }),
       removeReminder: (id: string) => invoke<{ removed: true }>('calendar', 'removeReminder', { id }),
     },

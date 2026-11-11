@@ -116,6 +116,43 @@ describe('deployed device client', () => {
     expect(JSON.parse(calls[2][2]).reminder.completedAt).toBeUndefined();
   });
 
+  test('undated reminder read/edit omits only false flags paired with explicit null dates', async () => {
+    const stored = {
+      id: 'undated', calendarId: 'list', title: 'Read later', notes: null, url: null,
+      dueAt: null, startAt: null, dueDateOnly: false, startDateOnly: false,
+      priority: 0, completed: false, completedAt: null,
+    };
+    const { client, calls } = fixture(JSON.stringify(stored));
+    const loaded = await client.calendar.reminder('undated');
+    if (!loaded) throw new Error('Expected the native reminder result');
+    const { completedAt, ...editable } = loaded;
+    expect(completedAt).toBeNull();
+    await client.calendar.saveReminder(editable);
+    const sent = JSON.parse(calls[1][2]).reminder;
+    expect(sent).toMatchObject({ title: 'Read later', dueAt: null, startAt: null });
+    expect(sent).not.toHaveProperty('dueDateOnly');
+    expect(sent).not.toHaveProperty('startDateOnly');
+    expect(editable.dueDateOnly).toBe(false);
+    expect(editable.startDateOnly).toBe(false);
+    await client.calendar.saveReminder({ title: 'Keep explicit flags', dueAt: 1234, dueDateOnly: false, startDateOnly: false });
+    expect(JSON.parse(calls[2][2]).reminder).toEqual({ title: 'Keep explicit flags', dueAt: 1234, dueDateOnly: false, startDateOnly: false });
+  });
+
+  test('reminder normalization snapshots safely and preserves true/null native errors', async () => {
+    const { client, native, calls } = fixture();
+    let accessed = false;
+    const input = Object.defineProperty({ title: 'Unsafe' }, 'dueAt', {
+      enumerable: true, get() { accessed = true; return null; },
+    });
+    await expect(client.calendar.saveReminder(input)).rejects.toThrow('getters');
+    expect(accessed).toBe(false);
+    expect(calls).toHaveLength(0);
+    const error = new Error('dueDateOnly requires a dueAt date.');
+    native.call = async (domain, operation, json) => { calls.push([domain, operation, json]); throw error; };
+    await expect(client.calendar.saveReminder({ title: 'Invalid all-day', dueAt: null, dueDateOnly: true })).rejects.toBe(error);
+    expect(JSON.parse(calls[0][2]).reminder).toEqual({ title: 'Invalid all-day', dueAt: null, dueDateOnly: true });
+  });
+
   test('lossy input never reaches native code or invokes accessor/toJSON hooks', async () => {
     const { client, calls } = fixture();
     let accessed = false;
