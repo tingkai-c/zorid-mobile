@@ -32,7 +32,7 @@ class SigningTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
-        self.root = Path(directory.name)
+        self.root = Path(directory.name).resolve()
 
     def bundle(self, path, identifier, platform=7):
         path.mkdir(parents=True)
